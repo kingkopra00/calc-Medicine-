@@ -41,19 +41,21 @@
         .results-table tfoot td { font-weight: bold; border-top: 2px solid var(--accent); }
         #institutions-toggle-list { padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
         .toggle-table { width: 100%; }
+        #print-header { display: none; }
         
         @media print {
             body { background: #fff; color: #000; font-family: Arial, sans-serif; font-size: 10pt; }
             main, .section { margin: 0; padding: 0; border: none; box-shadow: none; background: #fff; }
             .no-print { display: none !important; }
+            #print-header { display: block; text-align: center; margin-bottom: 2em; }
+            #print-header h1 { font-size: 16pt; margin: 0; color: #000; }
+            #print-header p { font-size: 12pt; margin: 5px 0; color: #000; }
             h1, h2 { color: #000; }
-            #results-table-container { margin-top: 2em; }
+            #results-table-container { margin-top: 1em; }
             .results-summary { background: #eee; border: 1px solid #ccc; color: #000; }
             .results-table { border: 1px solid #ccc; font-size: 9pt; }
             .results-table th, .results-table td { border: 1px solid #ccc; color: #000; }
             @page { size: A4; margin: 20mm; }
-            h1::after { content: " - تقرير توزيع رسمي"; }
-            h2 { display: none; }
         }
     </style>
 </head>
@@ -106,6 +108,10 @@
         </div>
 
         <div class="section" id="results-section" hidden>
+            <div id="print-header">
+                <h1 id="print-item-name"></h1>
+                <p id="print-item-code"></p>
+            </div>
             <h2>الخطوة 3: النتائج النهائية</h2>
             <div id="results-table-container"></div>
             <div class="form-row no-print" style="margin-top: 20px;">
@@ -289,14 +295,12 @@
             
             const totalNeedOfActive = activeInstitutions.reduce((sum, i) => sum + i.need, 0);
 
-            // Step 1: Calculate ideal proportional share
             activeInstitutions.forEach(inst => {
                 let share = Math.floor((inst.need / totalNeedOfActive) * availableQty);
                 if (!forceDistCheck.checked) share = Math.min(share, inst.need);
                 inst.share = share;
             });
             
-            // Step 2: Distribute initial remainder from flooring
             let distributedQty = activeInstitutions.reduce((sum, inst) => sum + inst.share, 0);
             let remainder = availableQty - distributedQty;
             activeInstitutions.sort((a, b) => (b.need / totalNeedOfActive) - (a.need / totalNeedOfActive));
@@ -305,39 +309,30 @@
                 if (forceDistCheck.checked || inst.share < inst.need) { inst.share++; } else { remainder++; }
             }
             
-            // Step 3: Round down to package size
             activeInstitutions.forEach(inst => {
                 inst.roundedShare = Math.floor(inst.share / packageSize) * packageSize;
             });
 
-            // Step 4: NEW - Intelligently redistribute the remainder from rounding
             if (packageSize > 1) {
                 let totalRoundedDistributed = activeInstitutions.reduce((sum, inst) => sum + inst.roundedShare, 0);
                 let roundingRemainder = availableQty - totalRoundedDistributed;
                 
                 while (roundingRemainder >= packageSize) {
-                    // Find the best candidate for the next package
                     let bestCandidate = null;
                     let maxLoss = -1;
-
                     activeInstitutions.forEach(inst => {
                         const roundingLoss = inst.share - inst.roundedShare;
-                        // A valid candidate must have lost something and (if not forcing) have room for another package
                         if (roundingLoss > maxLoss && (forceDistCheck.checked || (inst.roundedShare + packageSize <= inst.need))) {
                            maxLoss = roundingLoss;
                            bestCandidate = inst;
                         }
                     });
-
                     if (bestCandidate) {
                         bestCandidate.roundedShare += packageSize;
                         roundingRemainder -= packageSize;
-                    } else {
-                        break; // No more eligible institutions
-                    }
+                    } else { break; }
                 }
             }
-
             displayResults(activeInstitutions, totalNeedOfActive, availableQty);
         };
 
@@ -345,23 +340,26 @@
             lastResultsData = institutions;
             const container = document.getElementById('results-table-container');
             const packageSize = parseInt(packageSizeInput.value, 10) || 1;
+            const itemCode = selectedRowData.row[0] || 'غير متوفر';
+            const itemName = selectedRowData.row[1] || 'غير متوفر';
+
+            // Populate print header
+            document.getElementById('print-item-name').textContent = `تقرير توزيع مادة: ${itemName}`;
+            document.getElementById('print-item-code').textContent = `الكود: ${itemCode}`;
 
             const totalDistributed = institutions.reduce((sum, inst) => sum + inst.share, 0);
             const totalRoundedDistributed = institutions.reduce((sum, inst) => sum + inst.roundedShare, 0);
             const finalTotalDistributed = packageSize > 1 ? totalRoundedDistributed : totalDistributed;
             
             const overallCoveragePercentage = totalNeedOfActive > 0 ? ((finalTotalDistributed / totalNeedOfActive) * 100).toFixed(1) : 0;
-            const summaryHTML = `<div class="results-summary"><span><strong>الكمية المتوفرة:</strong> ${availableQty.toLocaleString()}</span> | <span><strong>إجمالي الموزع:</strong> ${finalTotalDistributed.toLocaleString()}</span> | <span><strong>المتبقي لديك:</strong> ${(availableQty - finalTotalDistributed).toLocaleString()}</span></div>`;
+            const summaryHTML = `<div class="results-summary no-print"><span><strong>الكمية المتوفرة:</strong> ${availableQty.toLocaleString()}</span> | <span><strong>إجمالي الموزع:</strong> ${finalTotalDistributed.toLocaleString()}</span> | <span><strong>المتبقي لديك:</strong> ${(availableQty - finalTotalDistributed).toLocaleString()}</span></div>`;
             
-            let tableHTML = summaryHTML + `<table class="results-table"><thead><tr><th>اسم المؤسسة</th><th>الاحتياج</th><th>الحصة المحسوبة</th>`;
-            if (packageSize > 1) {
-                tableHTML += `<th>الحصة النهائية (بالعبوات)</th><th>عدد العبوات</th>`;
-            }
+            let tableHTML = summaryHTML + `<table class="results-table"><thead><tr><th>اسم المؤسسة</th><th>الاحتياج السنوي</th><th>الحصة المحسوبة</th>`;
+            if (packageSize > 1) tableHTML += `<th>الحصة النهائية (بالعبوات)</th><th>عدد العبوات</th>`;
             tableHTML += `<th>النسبة من الاحتياج</th></tr></thead><tbody>`;
 
             institutions.forEach(inst => {
                 const percentageOfTotalNeed = totalNeedOfActive > 0 ? ((inst.need / totalNeedOfActive) * 100).toFixed(1) : 0;
-                const finalShare = packageSize > 1 ? inst.roundedShare : inst.share;
                 tableHTML += `<tr><td>${inst.name}</td><td>${inst.need.toLocaleString()}</td><td>${inst.share.toLocaleString()}</td>`;
                 if (packageSize > 1) {
                     tableHTML += `<td style="font-weight:bold; color: var(--success);">${inst.roundedShare.toLocaleString()}</td>`;
