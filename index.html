@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة التوزيعات - نسخة احترافية</title>
+    <title>نظام إدارة التوزيعات - نسخة مستقرة</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -17,30 +17,30 @@
         .section { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 1.5em; }
         .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 1em; align-items: end; }
         label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9em; color: var(--muted); }
-        input[type="text"], input[type="file"] { width: 100%; padding: 10px; background: var(--main-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 1em; box-sizing: border-box; }
+        input, select { width: 100%; padding: 10px; background: var(--main-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 1em; box-sizing: border-box; }
         .btn { background: var(--panel-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 20px; font-size: 1em; cursor: pointer; width: 100%; transition: background-color 0.2s, border-color 0.2s; }
         .btn:hover { border-color: var(--accent); }
         .btn-primary { background: var(--accent); color: #fff; border: none; }
+        .btn-success { background: var(--success); color: #fff; border: none; } /* Added btn-success */
         .btn-danger { background-color: var(--danger); color: #fff; border: none; }
         #data-status { text-align: center; color: var(--accent); font-weight: bold; margin-bottom: 1em; min-height: 1.2em; }
         .search-wrapper { position: relative; }
-        #suggestions-container { position: absolute; background-color: #2d3241; border: 1px solid var(--border); border-radius: 8px; width: 100%; top: 100%; z-index: 100; max-height: 300px; overflow-y: auto; }
+        #suggestions-container {
+            position: absolute; background-color: #2d3241; border: 1px solid var(--border);
+            border-radius: 8px; width: 100%; z-index: 1000; max-height: 40vh; overflow-y: auto; top: 100%;
+        }
+        #suggestions-container.suggestions-above { top: auto; bottom: 100%; }
         .suggestion-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border); }
         .suggestion-item:last-child { border-bottom: none; }
         .suggestion-item:hover { background-color: #3a3f4b; }
-        .modal-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1001; }
         .modal-content { background: var(--panel-bg); padding: 20px; border-radius: 12px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
-        .results-list-item { padding: 15px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: background-color 0.2s; }
-        .results-list-item:hover { background-color: #3a3f4b; }
-        .results-list-item strong { color: var(--accent); }
         .options-row { display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 12px; background: #2d3241; border-radius: 8px; }
         .results-summary { text-align: center; font-size: 1.1em; margin-bottom: 1em; background: #2d3241; padding: 10px; border-radius: 8px; }
-        .results-summary span { margin: 0 10px; }
-        .results-table { width: 100%; border-collapse: collapse; font-size: 0.95em; margin-top: 1em; }
-        .results-table th, .results-table td { border-bottom: 1px solid var(--border); padding: 12px 8px; text-align: center; }
+        .results-table { width: 100%; border-collapse: collapse; font-size: 0.95em; margin-top: 1em; table-layout: fixed; }
+        .results-table th, .results-table td { border-bottom: 1px solid var(--border); padding: 12px 8px; text-align: center; word-wrap: break-word; }
         .results-table tfoot td { font-weight: bold; border-top: 2px solid var(--accent); }
         #institutions-toggle-list { padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
-        .toggle-table { width: 100%; }
         #print-header { display: none; }
         
         @media print {
@@ -50,7 +50,7 @@
             #print-header { display: block; text-align: center; margin-bottom: 2em; }
             #print-header h1 { font-size: 16pt; margin: 0; color: #000; }
             #print-header p { font-size: 12pt; margin: 5px 0; color: #000; }
-            h1, h2 { color: #000; }
+            h1, h2 { display: none; }
             #results-table-container { margin-top: 1em; }
             .results-summary { background: #eee; border: 1px solid #ccc; color: #000; }
             .results-table { border: 1px solid #ccc; font-size: 9pt; }
@@ -67,9 +67,17 @@
             <h2>الخطوة 1: إدارة البيانات والبحث</h2>
             <p id="data-status"></p>
             <div class="form-row">
-                <div><label for="excel-file-input">اختر ملف إكسل جديد</label><input type="file" id="excel-file-input" accept=".xlsx, .xls"></div>
+                <div>
+                    <label>اختر سنة الاحتياج للتحميل (يتم البحث تلقائياً)</label>
+                    <select id="year-select"><option value="">-- جاري البحث... --</option></select>
+                </div>
+                <div><button id="load-from-server-btn" class="btn btn-success">🔄 تحميل من السيرفر</button></div>
+                 <div><label style="visibility: hidden;">.</label><button id="clear-data-btn" class="btn btn-danger" hidden>🗑️ حذف البيانات المحفوظة</button></div>
+            </div>
+            <hr style="border-color: var(--border); margin: 2em 0;">
+            <div class="form-row">
+                <div><label>... أو تحميل ملف يدويًا من جهازك</label><input type="file" id="excel-file-input" accept=".xlsx, .xls"></div>
                 <div><button id="load-excel-btn" class="btn">📂 تحميل وتحديث</button></div>
-                <div><label style="visibility: hidden;">.</label><button id="clear-data-btn" class="btn btn-danger" hidden>🗑️ حذف البيانات المحفوظة</button></div>
             </div>
             <hr style="border-color: var(--border); margin: 2em 0;">
             <div class="form-row">
@@ -81,9 +89,10 @@
                 <div><label style="visibility: hidden;">.</label><button id="search-excel-btn" class="btn btn-primary">🔍 بحث</button></div>
             </div>
         </div>
-
+        
         <div class="section no-print" id="config-section" hidden>
             <h2>الخطوة 2: تهيئة التوزيع</h2>
+            <button id="reset-btn" class="btn btn-danger" style="margin-bottom: 1em;">مسح والبدء من جديد</button>
             <div class="form-row">
                  <div><label for="item-name-display">اسم المادة</label><input type="text" id="item-name-display" readonly></div>
                 <div><label for="total-need-display">إجمالي الاحتياج المحدد</label><input type="text" id="total-need-display" readonly></div>
@@ -112,7 +121,7 @@
                 <h1 id="print-item-name"></h1>
                 <p id="print-item-code"></p>
             </div>
-            <h2>الخطوة 3: النتائج النهائية</h2>
+            <h2 class="no-print">الخطوة 3: النتائج النهائية</h2>
             <div id="results-table-container"></div>
             <div class="form-row no-print" style="margin-top: 20px;">
                 <button id="print-btn" class="btn">🖨️ طباعة التقرير</button>
@@ -129,7 +138,7 @@
     </div>
 
     <footer class="no-print">
-        <p>الصيدلاني علي محمد حسن الناجي</p>
+        <p>علي محمد حسن</p>
         <p>قسم الصيدلة - دائرة صحة المثنى</p>
     </footer>
 
@@ -142,12 +151,45 @@
         const availableQtyInput = document.getElementById('available-qty-input');
         const packageSizeInput = document.getElementById('package-size-input');
         const forceDistCheck = document.getElementById('force-full-dist-check');
+        const configSection = document.getElementById('config-section');
+        const resultsSection = document.getElementById('results-section');
 
+        async function discoverAvailableYears() {
+            const yearSelect = document.getElementById('year-select');
+            const apiUrl = 'https://api.github.com/repos/kingkopra00/calc-Medicine-/contents/';
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('فشل الاتصال بـ GitHub.');
+                const files = await response.json();
+                const yearRegex = /^data(\d{4})\.xlsx$/;
+                const availableYears = [];
+                for (const file of files) {
+                    const match = file.name.match(yearRegex);
+                    if (match) availableYears.push(match[1]);
+                }
+                yearSelect.innerHTML = '';
+                if (availableYears.length > 0) {
+                    availableYears.sort((a, b) => b - a);
+                    yearSelect.innerHTML = '<option value="">-- اختر السنة --</option>';
+                    availableYears.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = `احتياج ${year}`;
+                        yearSelect.appendChild(option);
+                    });
+                } else { yearSelect.innerHTML = '<option value="">-- لم يتم العثور على ملفات --</option>'; }
+            } catch (error) {
+                console.error("Discovery Error:", error);
+                yearSelect.innerHTML = '<option value="">-- خطأ في البحث عن الملفات --</option>';
+            }
+        }
+        
         document.addEventListener('DOMContentLoaded', () => {
             loadDataFromLocal();
+            discoverAvailableYears();
             const savedForceSetting = localStorage.getItem('forceFullDistSetting');
             if (savedForceSetting === 'true') forceDistCheck.checked = true;
-            forceDistCheck.onchange = () => localStorage.setItem('forceFullDistSetting', forceDistCheck.checked);
+            forceDistCheck.onchange = (e) => localStorage.setItem('forceFullDistSetting', e.target.checked);
         });
 
         function normalizeAndCleanInput(value) {
@@ -160,10 +202,7 @@
         availableQtyInput.addEventListener('input', (e) => e.target.value = normalizeAndCleanInput(e.target.value));
         packageSizeInput.addEventListener('input', (e) => e.target.value = normalizeAndCleanInput(e.target.value));
 
-        function saveDataToLocal(data) {
-            try { localStorage.setItem('savedDistributionData', JSON.stringify(data)); } 
-            catch (e) { alert("خطأ: لا يمكن حفظ البيانات. قد تكون مساحة التخزين ممتلئة."); console.error(e); }
-        }
+        function saveDataToLocal(data) { try { localStorage.setItem('savedDistributionData', JSON.stringify(data)); } catch (e) { alert("خطأ: لا يمكن حفظ البيانات."); } }
 
         function loadDataFromLocal() {
             const savedData = localStorage.getItem('savedDistributionData');
@@ -172,72 +211,87 @@
             if (savedData) {
                 try {
                     excelData = JSON.parse(savedData);
-                    statusEl.textContent = `✅ تم تحميل ${excelData.rows.length} صف من البيانات المحفوظة. يمكنك البدء بالبحث مباشرة.`;
+                    statusEl.textContent = `✅ تم تحميل ${excelData.rows.length} صف من البيانات المحفوظة.`;
                     clearBtn.hidden = false;
-                } catch (e) {
-                    statusEl.textContent = "⚠️ فشل تحميل البيانات المحفوظة. يرجى رفع الملف مرة أخرى.";
-                    localStorage.removeItem('savedDistributionData');
-                }
+                } catch (e) { statusEl.textContent = "⚠️ فشل تحميل البيانات المحفوظة."; localStorage.removeItem('savedDistributionData'); }
             } else { statusEl.textContent = "يرجى رفع ملف الإكسل للبدء."; }
         }
 
-        document.getElementById('clear-data-btn').onclick = () => {
-            if (confirm('هل أنت متأكد أنك تريد حذف البيانات المحفوظة بشكل دائم؟')) {
-                localStorage.removeItem('savedDistributionData');
-                alert('تم حذف البيانات المحفوظة. سيتم تحديث الصفحة.');
-                location.reload();
-            }
+        document.getElementById('clear-data-btn').onclick = () => { if (confirm('هل أنت متأكد؟')) { localStorage.removeItem('savedDistributionData'); location.reload(); } };
+        
+        document.getElementById('load-from-server-btn').onclick = function() {
+            const selectedYear = document.getElementById('year-select').value;
+            if (!selectedYear) { alert('الرجاء اختيار سنة.'); return; }
+            const excelFileUrl = `https://raw.githubusercontent.com/kingkopra00/calc-Medicine-/main/data${selectedYear}.xlsx`;
+            const statusEl = document.getElementById('data-status');
+            statusEl.textContent = `جاري تحميل بيانات سنة ${selectedYear}...`;
+            fetch(excelFileUrl)
+                .then(response => { if (!response.ok) throw new Error('فشل تحميل الملف.'); return response.arrayBuffer(); })
+                .then(arrayBuffer => {
+                    const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
+                    processExcelData(workbook);
+                })
+                .catch(error => { alert(`خطأ: ${error.message}`); statusEl.textContent = '⚠️ فشل التحميل.'; });
         };
+        
+        function processExcelData(workbook) {
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+            if (jsonData.length > 1) {
+                excelData = { headers: jsonData[0] || [], rows: jsonData.slice(1) };
+                saveDataToLocal(excelData);
+                alert(`✅ تم تحميل البيانات بنجاح.`);
+                loadDataFromLocal();
+            } else { alert("الملف فارغ."); }
+        }
 
         document.getElementById('load-excel-btn').onclick = function() {
             const fileInput = document.getElementById('excel-file-input');
-            if (!fileInput.files.length) { alert("الرجاء اختيار ملف إكسل."); return; }
+            if (!fileInput.files.length) { alert("اختر ملف إكسل."); return; }
             const reader = new FileReader();
             reader.onload = e => {
                 const workbook = XLSX.read(e.target.result, { type: 'binary' });
-                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-                if (jsonData.length > 1) {
-                    excelData = { headers: jsonData[0] || [], rows: jsonData.slice(1) };
-                    saveDataToLocal(excelData);
-                    alert(`✅ تم تحميل الملف بنجاح وحفظه للاستخدام المستقبلي.`);
-                    loadDataFromLocal();
-                } else { alert("الملف فارغ."); }
+                processExcelData(workbook);
             };
             reader.readAsBinaryString(fileInput.files[0]);
         };
-
+        
         searchInput.addEventListener('input', () => {
             const query = searchInput.value.trim().toLowerCase();
             suggestionsContainer.innerHTML = '';
             if (query.length < 4 || excelData.rows.length === 0) return;
-            const suggestions = excelData.rows.filter(row =>
-                (row[0] && String(row[0]).toLowerCase().includes(query)) ||
-                (row[1] && String(row[1]).toLowerCase().includes(query))
-            ).slice(0, 10);
+            const suggestions = excelData.rows.filter(row => (row[0] && String(row[0]).toLowerCase().includes(query)) || (row[1] && String(row[1]).toLowerCase().includes(query))).slice(0, 15);
+            if (suggestions.length === 0) return;
+            
             suggestions.forEach(row => {
                 const item = document.createElement('div');
                 item.className = 'suggestion-item';
                 item.textContent = `${row[0] || ''} - ${row[1] || ''}`;
                 item.onclick = () => {
-                    searchInput.value = row[1];
                     suggestionsContainer.innerHTML = '';
-                    document.getElementById('search-excel-btn').click();
+                    populateConfigSection(row); // MODIFIED: Direct selection
                 };
                 suggestionsContainer.appendChild(item);
             });
+
+            setTimeout(() => {
+                const inputRect = searchInput.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - inputRect.bottom;
+                suggestionsContainer.classList.remove('suggestions-above');
+                if (spaceBelow < suggestionsContainer.scrollHeight && inputRect.top > suggestionsContainer.scrollHeight) {
+                    suggestionsContainer.classList.add('suggestions-above');
+                }
+            }, 0);
         });
 
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.search-wrapper')) { suggestionsContainer.innerHTML = ''; }
-        });
+        document.addEventListener('click', (e) => { if (!e.target.closest('.search-wrapper')) { suggestionsContainer.innerHTML = ''; } });
 
         document.getElementById('search-excel-btn').onclick = function() {
             const query = searchInput.value.trim().toLowerCase();
             suggestionsContainer.innerHTML = '';
-            if (!query) { alert("الرجاء إدخال نص للبحث."); return; }
-            if (excelData.rows.length === 0) { alert("يرجى تحميل بيانات الإكسل أولاً."); return; }
+            if (!query) { alert("أدخل نص للبحث."); return; }
+            if (excelData.rows.length === 0) { alert("يرجى تحميل البيانات."); return; }
             const results = excelData.rows.filter(row => (row && row[1] && String(row[1]).toLowerCase().includes(query)) || (row && row[0] && String(row[0]).toLowerCase().includes(query)));
-            if (results.length === 0) { alert(`لم يتم العثور على نتائج للبحث.`); }
+            if (results.length === 0) { alert(`لا توجد نتائج.`); }
             else if (results.length === 1) { populateConfigSection(results[0]); }
             else { showMultiResultModal(results); }
         };
@@ -256,13 +310,22 @@
             modal.style.display = 'flex';
         }
         
-        document.getElementById('multi-results-modal').onclick = (e) => { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; };
-
-        function populateConfigSection(row) {
-            document.getElementById('config-section').hidden = false;
-            document.getElementById('results-section').hidden = true;
+        document.getElementById('multi-results-modal').onclick = (e) => { if (e.target === e.currentTarget) { e.currentTarget.style.display = 'none'; } };
+        
+        document.getElementById('reset-btn').onclick = function() {
+            searchInput.value = '';
             availableQtyInput.value = '';
             packageSizeInput.value = '';
+            configSection.hidden = true;
+            resultsSection.hidden = true;
+        };
+
+        function populateConfigSection(row) {
+            configSection.hidden = false;
+            resultsSection.hidden = true;
+            availableQtyInput.value = '';
+            packageSizeInput.value = '';
+            searchInput.value = row[1] || ''; // Also populate the search bar for clarity
             document.getElementById('item-name-display').value = row[1] || 'غير متوفر';
             document.getElementById('total-need-display').value = (parseInt(row[6], 10) || 0).toLocaleString();
             const institutions = [];
@@ -271,7 +334,7 @@
                 if (header && header.includes("احتياج") && !header.includes("مصروف")) {
                     const containsKeyword = keywords.some(k => header.toLowerCase().includes(k));
                     if (containsKeyword) {
-                        const institutionName = header.replace("احتياج", "").replace(/2025/g, "").trim();
+                        const institutionName = header.replace(/احتياج/i, "").replace(/202\d/g, "").trim();
                         const needValue = parseInt(row[index], 10) || 0;
                         if (institutionName && needValue > 0) institutions.push({ name: institutionName, need: needValue });
                     }
@@ -288,19 +351,15 @@
         document.getElementById('calculate-btn').onclick = function() {
             const availableQty = parseInt(availableQtyInput.value, 10);
             const packageSize = parseInt(packageSizeInput.value, 10) || 1;
-            if (isNaN(availableQty) || availableQty < 0) { alert("الرجاء إدخال كمية متوفرة صحيحة."); return; }
-            
+            if (isNaN(availableQty) || availableQty < 0) { alert("أدخل كمية صحيحة."); return; }
             const activeInstitutions = selectedRowData.institutions.filter(inst => document.querySelector(`.institution-toggle[data-name="${inst.name}"]`).checked).map(inst => ({...inst})); 
-            if (activeInstitutions.length === 0) { alert("يجب تفعيل مؤسسة واحدة على الأقل للتوزيع."); return; }
-            
+            if (activeInstitutions.length === 0) { alert("اختر مؤسسة واحدة على الأقل."); return; }
             const totalNeedOfActive = activeInstitutions.reduce((sum, i) => sum + i.need, 0);
-
             activeInstitutions.forEach(inst => {
                 let share = Math.floor((inst.need / totalNeedOfActive) * availableQty);
                 if (!forceDistCheck.checked) share = Math.min(share, inst.need);
                 inst.share = share;
             });
-            
             let distributedQty = activeInstitutions.reduce((sum, inst) => sum + inst.share, 0);
             let remainder = availableQty - distributedQty;
             activeInstitutions.sort((a, b) => (b.need / totalNeedOfActive) - (a.need / totalNeedOfActive));
@@ -308,29 +367,17 @@
                 let inst = activeInstitutions[i % activeInstitutions.length];
                 if (forceDistCheck.checked || inst.share < inst.need) { inst.share++; } else { remainder++; }
             }
-            
-            activeInstitutions.forEach(inst => {
-                inst.roundedShare = Math.floor(inst.share / packageSize) * packageSize;
-            });
-
+            activeInstitutions.forEach(inst => { inst.roundedShare = Math.floor(inst.share / packageSize) * packageSize; });
             if (packageSize > 1) {
                 let totalRoundedDistributed = activeInstitutions.reduce((sum, inst) => sum + inst.roundedShare, 0);
                 let roundingRemainder = availableQty - totalRoundedDistributed;
-                
                 while (roundingRemainder >= packageSize) {
-                    let bestCandidate = null;
-                    let maxLoss = -1;
+                    let bestCandidate = null, maxLoss = -1;
                     activeInstitutions.forEach(inst => {
                         const roundingLoss = inst.share - inst.roundedShare;
-                        if (roundingLoss > maxLoss && (forceDistCheck.checked || (inst.roundedShare + packageSize <= inst.need))) {
-                           maxLoss = roundingLoss;
-                           bestCandidate = inst;
-                        }
+                        if (roundingLoss > maxLoss && (forceDistCheck.checked || (inst.roundedShare + packageSize <= inst.need))) { maxLoss = roundingLoss; bestCandidate = inst; }
                     });
-                    if (bestCandidate) {
-                        bestCandidate.roundedShare += packageSize;
-                        roundingRemainder -= packageSize;
-                    } else { break; }
+                    if (bestCandidate) { bestCandidate.roundedShare += packageSize; roundingRemainder -= packageSize; } else { break; }
                 }
             }
             displayResults(activeInstitutions, totalNeedOfActive, availableQty);
@@ -342,22 +389,16 @@
             const packageSize = parseInt(packageSizeInput.value, 10) || 1;
             const itemCode = selectedRowData.row[0] || 'غير متوفر';
             const itemName = selectedRowData.row[1] || 'غير متوفر';
-
-            // Populate print header
             document.getElementById('print-item-name').textContent = `تقرير توزيع مادة: ${itemName}`;
             document.getElementById('print-item-code').textContent = `الكود: ${itemCode}`;
-
             const totalDistributed = institutions.reduce((sum, inst) => sum + inst.share, 0);
             const totalRoundedDistributed = institutions.reduce((sum, inst) => sum + inst.roundedShare, 0);
             const finalTotalDistributed = packageSize > 1 ? totalRoundedDistributed : totalDistributed;
-            
             const overallCoveragePercentage = totalNeedOfActive > 0 ? ((finalTotalDistributed / totalNeedOfActive) * 100).toFixed(1) : 0;
-            const summaryHTML = `<div class="results-summary no-print"><span><strong>الكمية المتوفرة:</strong> ${availableQty.toLocaleString()}</span> | <span><strong>إجمالي الموزع:</strong> ${finalTotalDistributed.toLocaleString()}</span> | <span><strong>المتبقي لديك:</strong> ${(availableQty - finalTotalDistributed).toLocaleString()}</span></div>`;
-            
-            let tableHTML = summaryHTML + `<table class="results-table"><thead><tr><th>اسم المؤسسة</th><th>الاحتياج السنوي</th><th>الحصة المحسوبة</th>`;
-            if (packageSize > 1) tableHTML += `<th>الحصة النهائية (بالعبوات)</th><th>عدد العبوات</th>`;
-            tableHTML += `<th>النسبة من الاحتياج</th></tr></thead><tbody>`;
-
+            const summaryHTML = `<div class="results-summary"><span><strong>الكمية المتوفرة:</strong> ${availableQty.toLocaleString()}</span> | <span><strong>إجمالي الموزع:</strong> ${finalTotalDistributed.toLocaleString()}</span> | <span><strong>المتبقي لديك:</strong> ${(availableQty - finalTotalDistributed).toLocaleString()}</span></div>`;
+            let tableHTML = summaryHTML + `<table class="results-table"><thead><tr><th>اسم المؤسسة</th><th>الاحتياج</th><th>الحصة المحسوبة</th>`;
+            if (packageSize > 1) { tableHTML += `<th>الحصة النهائية</th><th>عدد العبوات</th>`; }
+            tableHTML += `<th>النسبة</th></tr></thead><tbody>`;
             institutions.forEach(inst => {
                 const percentageOfTotalNeed = totalNeedOfActive > 0 ? ((inst.need / totalNeedOfActive) * 100).toFixed(1) : 0;
                 tableHTML += `<tr><td>${inst.name}</td><td>${inst.need.toLocaleString()}</td><td>${inst.share.toLocaleString()}</td>`;
@@ -367,22 +408,17 @@
                 }
                 tableHTML += `<td>${percentageOfTotalNeed}%</td></tr>`;
             });
-            
             const totalPackages = packageSize > 1 ? (totalRoundedDistributed / packageSize) : 0;
-            tableHTML += `</tbody><tfoot><tr><td>المجموع الكلي</td><td>${totalNeedOfActive.toLocaleString()}</td><td>${totalDistributed.toLocaleString()}</td>`;
-            if (packageSize > 1) {
-                tableHTML += `<td>${totalRoundedDistributed.toLocaleString()}</td><td>${totalPackages} علب</td>`;
-            }
-            tableHTML += `<td>${overallCoveragePercentage}% (إجمالي التغطية)</td></tr></tfoot></table>`;
-            
+            tableHTML += `</tbody><tfoot><tr><td>المجموع</td><td>${totalNeedOfActive.toLocaleString()}</td><td>${totalDistributed.toLocaleString()}</td>`;
+            if (packageSize > 1) { tableHTML += `<td>${totalRoundedDistributed.toLocaleString()}</td><td>${totalPackages} علب</td>`; }
+            tableHTML += `<td>${overallCoveragePercentage}%</td></tr></tfoot></table>`;
             container.innerHTML = tableHTML;
-            document.getElementById('results-section').hidden = false;
+            resultsSection.hidden = false;
         }
 
         document.getElementById('print-btn').onclick = () => window.print();
-
         document.getElementById('export-csv-btn').onclick = function() {
-            if (lastResultsData.length === 0) { alert("لا توجد نتائج لتصديرها."); return; }
+            if (lastResultsData.length === 0) { alert("لا توجد نتائج للتصدير."); return; }
             const itemName = document.getElementById('item-name-display').value;
             const packageSize = parseInt(packageSizeInput.value, 10) || 1;
             
