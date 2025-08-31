@@ -3,778 +3,286 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة التوزيعات</title>
+    <title>نظام إدارة التوزيعات - النسخة النهائية</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
-            --main-bg: #181b22;
-            --panel-bg: #232633;
-            --accent: #dc3545;
-            --border: #353945;
-            --text: #eee;
-            --muted: #bbb;
+            --main-bg: #1a1c23; --panel-bg: #252934; --accent: #007bff;
+            --border: #3a3f4b; --text: #f0f0f0; --muted: #a0a0a0; --success: #28a745; --danger: #dc3545;
         }
-        body, main {
-            background: var(--main-bg);
-            color: var(--text);
-            margin: 0;
-            font-family: "Tajawal", "Segoe UI", Arial, sans-serif;
-        }
-        main {
-            max-width: 700px;
-            margin: auto;
-            padding: 1rem 0.5rem 3rem;
-        }
-        h1, h2, h3 {
-            text-align: center;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 0.5em;
-        }
-        .dashboard {
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px;
-            margin: 1em 0;
-            text-align: center;
-            font-size: 1em;
-        }
-        .form-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 1em;
-        }
-        .form-row label {
-            flex: 1;
-            min-width: 140px;
-        }
-        .form-row input, .form-row select {
-            width: 100%;
-            padding: 7px;
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            border-radius: 6px;
-            font-size: 1em;
-        }
-        .options-row {
-            margin-bottom: 1em;
-        }
-        .options-row label {
-            margin-left: 10px;
-            font-size: 1em;
-        }
-        .search-row {
-            margin-bottom: 1em;
-        }
-        .search-row input {
-            width: 100%;
-            padding: 7px;
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            border-radius: 6px;
-        }
-        .institutions-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--panel-bg);
-            font-size: 0.98em;
-            margin-bottom: 1em;
-        }
-        .institutions-table th, .institutions-table td {
-            border-bottom: 1px solid var(--border);
-            padding: 7px 4px;
-            text-align: center;
-            vertical-align: middle;
-            color: var(--text);
-        }
-        .institutions-table th {
-            background: var(--panel-bg);
-            font-weight: 600;
-        }
-        .institutions-table tr:hover td {
-            background: #22242c;
-        }
-        .actions-cell button {
-            background: var(--panel-bg);
-            color: var(--accent);
-            border: 1px solid var(--border);
-            border-radius: 5px;
-            margin: 0 2px;
-            font-size: 1em;
-            padding: 2px 10px;
-        }
-        .actions-cell button:active {
-            background: var(--accent);
-            color: var(--panel-bg);
-        }
-        textarea.note-input {
-            min-height: 34px;
-            resize: vertical;
-            transition: min-height 0.2s;
-            width: 95%;
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            border-radius: 6px;
-            font-size: 0.98em;
-        }
-        .input-small {
-            width: 55px;
-            font-size: 0.97em;
-        }
-        .input-error {
-            border-color: var(--accent) !important;
-            background: #281a1a !important;
-        }
-        .btn {
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            border-radius: 7px;
-            padding: 8px 18px;
-            margin: 3px 2px;
-            font-size: 1em;
-            cursor: pointer;
-        }
-        .btn-accent {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-        }
-        .btn-block {
-            width: 100%;
-            margin: 7px 0 0;
-        }
-        /* Modal */
-        .modal-bg {
-            position: fixed;
-            top:0; left:0; width:100vw; height:100vh;
-            background: rgba(0,0,0,0.65);
-            display:none; z-index:1000;
-            justify-content: center; align-items: center;
-        }
-        .modal-content {
-            background: var(--panel-bg);
-            color: var(--text);
-            border-radius: 8px;
-            box-shadow: 0 4px 32px #0007;
-            padding: 13px 14px;
-            min-width: 220px;
-            max-width: 330px;
-            width: 95vw;
-            margin: auto;
-        }
-        .modal-content h3 { font-size:1.1em;margin-bottom:0.7em; text-align:center;}
-        .modal-content label {display:block; margin-bottom: 6px;}
-        .modal-content input, .modal-content textarea {
-            width: 100%; margin-top:3px; font-size:0.97em;
-        }
-        .modal-content .modal-btn-row {
-            display: flex;
-            gap: 7px;
-            margin-top: 10px;
-        }
-        .modal-content .modal-btn-row button {
-            flex: 1;
-            font-size: 1em;
-        }
-        /* List Modal */
-        #list-modal-content .list-item {
-            padding:7px 0; border-bottom:1px solid var(--border);
-            font-size: 0.97em;
-        }
-        #list-modal-content .list-add-btn {
-            float:left;
-            background: var(--panel-bg);
-            color: var(--accent);
-            border: 1px solid var(--border);
-            padding: 2px 10px;
-            border-radius: 5px;
-            font-size: 1em;
-        }
-        @media (max-width: 520px) {
-            main {padding:0.3rem 0.2rem 2rem;}
-            .form-row label {min-width: 90px;}
-            .modal-content, #list-modal-content {width:95vw; min-width:180px; max-width:330px; padding:9px 4px;}
-            .dashboard {font-size:0.98em;}
-            h1 {font-size:1.09em;}
-            .institutions-table th, .institutions-table td {padding:4px 2px;}
-        }
+        body { background: var(--main-bg); color: var(--text); margin: 0; font-family: "Tajawal", "Segoe UI", Arial, sans-serif; font-size: 16px; }
+        main { max-width: 900px; margin: 20px auto; padding: 1rem; }
+        h1, h2, h3 { text-align: center; font-weight: 700; margin-bottom: 1em; }
+        footer { text-align: center; margin-top: 2em; padding: 1em; color: var(--muted); border-top: 1px solid var(--border); }
+        .section { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 1.5em; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 1em; align-items: end; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9em; color: var(--muted); }
+        input[type="text"], input[type="file"] { width: 100%; padding: 10px; background: var(--main-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 1em; box-sizing: border-box; }
+        input[readonly] { background: #2d3241; cursor: not-allowed; font-weight: bold; }
+        .btn { background: var(--panel-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 20px; font-size: 1em; cursor: pointer; width: 100%; transition: background-color 0.2s; }
+        .btn:hover { border-color: var(--accent); }
+        .btn-primary { background: var(--accent); color: #fff; border: none; }
+        .btn-success { background: var(--success); color: #fff; border: none; }
+        .results-table { width: 100%; border-collapse: collapse; font-size: 0.95em; margin-top: 1em; }
+        .results-table th, .results-table td { border-bottom: 1px solid var(--border); padding: 12px 8px; text-align: center; }
+        .results-table tfoot td { font-weight: bold; border-top: 2px solid var(--accent); }
+        #institutions-toggle-list { padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+        .toggle-table { width: 100%; }
+        .options-row { display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 12px; background: #2d3241; border-radius: 8px; }
+        .results-summary { text-align: center; font-size: 1.1em; margin-bottom: 1em; background: #2d3241; padding: 10px; border-radius: 8px; }
+        /* --- NEW: Autocomplete styles --- */
+        .search-wrapper { position: relative; }
+        #suggestions-container { position: absolute; background-color: #2d3241; border: 1px solid var(--border); border-radius: 8px; width: 100%; top: 100%; z-index: 100; max-height: 300px; overflow-y: auto; }
+        .suggestion-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:hover { background-color: #3a3f4b; }
+        /* Modal styles */
+        .modal-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: var(--panel-bg); padding: 20px; border-radius: 12px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+        .results-list-item { padding: 15px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: background-color 0.2s; }
+        .results-list-item:hover { background-color: #3a3f4b; }
     </style>
 </head>
 <body>
     <main>
         <h1>📋 نظام إدارة التوزيعات</h1>
-        <div class="dashboard" id="dashboard"></div>
-        <form id="main-form" autocomplete="off" onsubmit="return false;">
+        
+        <div class="section">
+            <h2>الخطوة 1: تحميل وبحث</h2>
             <div class="form-row">
-                <label>
-                    اسم المادة
-                    <input type="text" id="item-name" placeholder="مثال: Amoxicillin 500mg">
-                </label>
-                <label>
-                    الكمية الإجمالية المتوفرة
-                    <input type="text" id="available-qty" min="0" placeholder="0">
-                </label>
+                <div><label for="excel-file-input">اختر ملف الإكسل</label><input type="file" id="excel-file-input" accept=".xlsx, .xls"></div>
+                <div><button id="load-excel-btn" class="btn">📂 تحميل الملف</button></div>
             </div>
-            <div class="options-row">
-                <label>
-                    <input type="checkbox" id="force-percent-distribution">
-                    توزيع الكمية حسب النسبة المئوية حتى لو تم تغطية الاحتياج بالكامل
-                </label>
-            </div>
-            <div class="search-row">
-                <input type="text" id="search-institutions" placeholder="بحث عن مؤسسة...">
-            </div>
-        </form>
-        <table class="institutions-table" id="institutions-table">
-            <thead>
-                <tr>
-                    <th>اسم المؤسسة</th>
-                    <th>الاحتياج</th>
-                    <th>كمية الحد الأدنى</th>
-                    <th>كمية الحد الأقصى</th>
-                    <th>ملاحظة</th>
-                    <th>عمليات</th>
-                </tr>
-            </thead>
-            <tbody id="institutions-tbody"></tbody>
-        </table>
-        <div>
-            <button class="btn secondary" id="add-institution-btn">➕ إضافة مؤسسة جديدة</button>
-            <button class="btn secondary" id="list-btn">📋 قائمة المؤسسات</button>
-            <button class="btn btn-accent" id="reset-btn" type="button">إعادة تعيين</button>
-        </div>
-        <button class="btn btn-block" id="calculate-btn">🧮 احتساب وتحديث التوزيع</button>
-        <section id="results-section" hidden>
-            <h2>النتائج وحالة الاستلام</h2>
-            <div id="summary-text"></div>
-            <div id="results-table-container"></div>
-            <div>
-                <button class="btn secondary" id="export-csv">💾 تصدير CSV</button>
-                <button class="btn secondary" id="export-txt">📄 تصدير نصي</button>
-            </div>
-        </section>
-    </main>
-    <footer style="text-align:center; color:#888; margin-top:1.5em;">تم التطوير بواسطة: ali mohammed hasan alnaji</footer>
-    <!-- Add Institution Modal -->
-    <div class="modal-bg" id="modal-bg">
-        <div class="modal-content">
-            <h3>إضافة مؤسسة جديدة</h3>
-            <form id="add-institute-form" autocomplete="off">
-                <label>اسم المؤسسة
-                    <input type="text" id="modal-institute-name" required>
-                </label>
-                <label>الاحتياج
-                    <input type="text" id="modal-institute-need" required autocomplete="off">
-                </label>
-                <label>
-                    <input type="checkbox" id="modal-show-min"> تفعيل كمية الحد الأدنى
-                </label>
-                <label id="modal-min-label" style="display:none;">كمية الحد الأدنى
-                    <input type="text" id="modal-institute-min" style="font-size:0.89em;">
-                </label>
-                <label>
-                    <input type="checkbox" id="modal-show-max"> تفعيل كمية الحد الأقصى
-                </label>
-                <label id="modal-max-label" style="display:none;">كمية الحد الأقصى
-                    <input type="text" id="modal-institute-max" style="font-size:0.89em;">
-                </label>
-                <label>ملاحظة
-                    <textarea id="modal-institute-note" style="font-size:0.92em;min-height:30px;"></textarea>
-                </label>
-                <div class="modal-btn-row">
-                    <button type="submit" class="btn secondary" id="modal-add-btn">إضافة</button>
-                    <button type="button" class="btn btn-accent" id="modal-cancel-btn">إلغاء</button>
+            <div class="form-row">
+                <div class="search-wrapper">
+                    <label for="item-name-search">ابحث بالاسم أو بالكود (4 أحرف فما فوق للاقتراحات)</label>
+                    <input type="text" id="item-name-search" placeholder="NATIONAL CODE or Item Name">
+                    <div id="suggestions-container"></div>
                 </div>
-            </form>
+                <div><button id="search-excel-btn" class="btn btn-primary">🔍 بحث</button></div>
+            </div>
+        </div>
+
+        <div class="section" id="config-section" hidden>
+            <h2>الخطوة 2: تهيئة التوزيع</h2>
+            <div class="form-row">
+                 <div><label for="item-name-display">اسم المادة</label><input type="text" id="item-name-display" readonly></div>
+                <div><label for="total-need-display">إجمالي الاحتياج المحدد</label><input type="text" id="total-need-display" readonly></div>
+            </div>
+            <label>المؤسسات المراد توزيع الحصة لها:</label>
+            <div id="institutions-toggle-list"></div>
+            <div class="options-row">
+                <input type="checkbox" id="force-full-dist-check" style="width: 20px; height: 20px;">
+                <label for="force-full-dist-check" style="margin: 0;">توزيع كامل الكمية المتوفرة (حتى لو أكبر من الاحتياج)</label>
+            </div>
+            <div class="form-row" style="margin-top: 20px;">
+                 <div><label for="available-qty-input">✅ الكمية المتوفرة لديك</label><input type="text" id="available-qty-input" placeholder="أدخل الكمية هنا"></div>
+                 <div><button id="calculate-btn" class="btn btn-success">🧮 احتساب الحصص</button></div>
+            </div>
+        </div>
+
+        <div class="section" id="results-section" hidden>
+            <h2>الخطوة 3: النتائج النهائية</h2>
+            <div id="results-table-container"></div>
+            <button id="export-csv-btn" class="btn" style="margin-top: 20px; background-color: #17a2b8; border:none;">💾 تصدير CSV</button>
+        </div>
+    </main>
+    
+    <div class="modal-bg" id="multi-results-modal">
+        <div class="modal-content">
+            <h3>تم العثور على عدة نتائج، الرجاء اختيار المادة الصحيحة:</h3>
+            <div id="results-list"></div>
         </div>
     </div>
-    <!-- List Modal -->
-    <div class="modal-bg" id="list-modal-bg">
-        <div class="modal-content" id="list-modal-content">
-            <h3>قائمة المؤسسات الغير مضافة</h3>
-            <div id="list-list" style="max-height:220px;overflow-y:auto; margin-bottom:15px;"></div>
-            <button class="btn btn-accent btn-block" id="list-modal-close">إغلاق</button>
-        </div>
-    </div>
+
+    <footer>
+        <p>علي محمد حسن</p>
+        <p>قسم الصيدلة - دائرة صحة المثنى</p>
+    </footer>
+
     <script>
-        // Utility
-        function normalizeNumber(str) {
-            const arabicIndic = '٠١٢٣٤٥٦٧٨٩';
-            const persianIndic = '۰۱۲۳۴۵۶۷۸۹';
-            let out = '';
-            for (let i = 0; i < str.length; i++) {
-                let ch = str[i];
-                let idx = arabicIndic.indexOf(ch);
-                if (idx !== -1) { out += String(idx); continue; }
-                idx = persianIndic.indexOf(ch);
-                if (idx !== -1) { out += String(idx); continue; }
-                out += ch;
-            }
-            return out.replace(/[^\d.]/g, '');
-        }
-        let resultsData = [];
-        let lastDistributedTotal = 0;
-        const BANK_KEY = "institutions-bank";
-        const DEFAULT_INSTITUTIONS = [
-            { name: 'مستشفى الحسين التعليمي', need: '', min: '', max: '', note: '' },
-            { name: 'مستشفى النسائية والاطفال', need: '', min: '', max: '', note: '' },
-            { name: 'مستشفى الوركاء', need: '', min: '', max: '', note: '' }
-        ];
-        // DOM references
-        const institutionsTbody = document.getElementById('institutions-tbody');
-        const dashboardDiv = document.getElementById('dashboard');
-        const searchInstitutionsInput = document.getElementById('search-institutions');
-        // Modal DOM
-        const modalBg = document.getElementById('modal-bg');
-        const addInstituteForm = document.getElementById('add-institute-form');
-        const modalCancelBtn = document.getElementById('modal-cancel-btn');
-        const modalAddBtn = document.getElementById('modal-add-btn');
-        const modalInstituteName = document.getElementById('modal-institute-name');
-        const modalInstituteNeed = document.getElementById('modal-institute-need');
-        const modalShowMin = document.getElementById('modal-show-min');
-        const modalMinLabel = document.getElementById('modal-min-label');
-        const modalInstituteMin = document.getElementById('modal-institute-min');
-        const modalShowMax = document.getElementById('modal-show-max');
-        const modalMaxLabel = document.getElementById('modal-max-label');
-        const modalInstituteMax = document.getElementById('modal-institute-max');
-        const modalInstituteNote = document.getElementById('modal-institute-note');
-        // List Modal DOM
-        const listBtn = document.getElementById('list-btn');
-        const listModalBg = document.getElementById('list-modal-bg');
-        const listList = document.getElementById('list-list');
-        const listModalClose = document.getElementById('list-modal-close');
-        const exportCsvBtn = document.getElementById('export-csv');
-        const exportTxtBtn = document.getElementById('export-txt');
-        function updateDashboard() {
-            let institutions = getInstitutionList();
-            dashboardDiv.innerHTML = `<strong>عدد المؤسسات:</strong> ${institutions.length}`;
-        }
-        // Table rendering
-        function institutionRowTemplate(inst, idx) {
-            return `<tr data-idx="${idx}">
-                <td>
-                    <span class="institution-name-text">${inst.name}</span>
-                    <input type="text" class="institution-name-input" value="${inst.name}" hidden style="width:90px;">
-                </td>
-                <td>
-                    <input type="text" class="need-input input-small" value="${inst.need}" autocomplete="off">
-                </td>
-                <td>
-                    ${inst.min !== "" && inst.min != null ?
-                        `<input type="text" class="min-input input-small" value="${inst.min}" autocomplete="off">` :
-                        `<button class="show-min-btn" title="إضافة الحد الأدنى" style="width:90%;font-size:0.86em;" data-idx="${idx}">+ إضافة</button>`
-                    }
-                </td>
-                <td>
-                    ${inst.max !== "" && inst.max != null ?
-                        `<input type="text" class="max-input input-small" value="${inst.max}" autocomplete="off">` :
-                        `<button class="show-max-btn" title="إضافة الحد الأقصى" style="width:90%;font-size:0.86em;" data-idx="${idx}">+ إضافة</button>`
-                    }
-                </td>
-                <td>
-                    <textarea class="note-input" style="width:95%;">${inst.note || ''}</textarea>
-                </td>
-                <td class="actions-cell">
-                    <button class="edit-btn" title="تعديل">📝</button>
-                    <button class="save-btn" hidden title="حفظ">✅</button>
-                    <button class="delete-btn" title="حذف">✕</button>
-                    <button class="duplicate-btn" title="نسخ">📑</button>
-                </td>
-            </tr>`;
-        }
-        function renderInstitutionsTable() {
-            let institutions = getInstitutionList();
-            institutionsTbody.innerHTML = institutions.map(institutionRowTemplate).join('');
-            Array.from(institutionsTbody.querySelectorAll('tr')).forEach((tr, idx) => {
-                const nameSpan = tr.querySelector('.institution-name-text');
-                const nameInput = tr.querySelector('.institution-name-input');
-                const needInput = tr.querySelector('.need-input');
-                const minInput = tr.querySelector('.min-input');
-                const maxInput = tr.querySelector('.max-input');
-                const noteInput = tr.querySelector('.note-input');
-                const editBtn = tr.querySelector('.edit-btn');
-                const saveBtn = tr.querySelector('.save-btn');
-                const deleteBtn = tr.querySelector('.delete-btn');
-                const duplicateBtn = tr.querySelector('.duplicate-btn');
-                const showMinBtn = tr.querySelector('.show-min-btn');
-                const showMaxBtn = tr.querySelector('.show-max-btn');
-                editBtn.onclick = () => {
-                    nameSpan.hidden = true;
-                    nameInput.hidden = false;
-                    editBtn.hidden = true;
-                    saveBtn.hidden = false;
-                    nameInput.focus();
-                };
-                saveBtn.onclick = () => {
-                    const newName = nameInput.value.trim();
-                    if (!newName || !isNaN(newName)) {
-                        alert('اسم المؤسسة يجب أن يكون نصاً وغير فارغ.');
-                        return;
-                    }
-                    nameSpan.textContent = newName;
-                    nameSpan.hidden = false;
-                    nameInput.hidden = true;
-                    editBtn.hidden = false;
-                    saveBtn.hidden = true;
-                    saveInstitutionsFromTable();
-                };
-                deleteBtn.onclick = () => {
-                    let institutions = getInstitutionList();
-                    if (confirm(`هل أنت متأكد من حذف "${nameSpan.textContent}"؟`)) {
-                        institutions.splice(idx, 1);
-                        saveInstitutionsList(institutions);
-                        renderInstitutionsTable();
-                        updateDashboard();
-                    }
-                };
-                duplicateBtn.onclick = () => {
-                    let institutions = getInstitutionList();
-                    institutions.splice(idx + 1, 0, {...institutions[idx]});
-                    saveInstitutionsList(institutions);
-                    renderInstitutionsTable();
-                    updateDashboard();
-                };
-                if (needInput) {
-                    needInput.oninput = () => {
-                        needInput.value = normalizeNumber(needInput.value);
-                        if (needInput.value === "" || isNaN(needInput.value) || Number(needInput.value) < 0) {
-                            needInput.classList.add('input-error');
-                        } else {
-                            needInput.classList.remove('input-error');
-                        }
-                        saveInstitutionsFromTable();
-                    };
-                }
-                if (minInput) {
-                    minInput.oninput = () => {
-                        minInput.value = normalizeNumber(minInput.value);
-                        saveInstitutionsFromTable();
-                    };
-                }
-                if (maxInput) {
-                    maxInput.oninput = () => {
-                        maxInput.value = normalizeNumber(maxInput.value);
-                        saveInstitutionsFromTable();
-                    };
-                }
-                if (noteInput) {
-                    noteInput.oninput = () => {
-                        noteInput.style.height = Math.max(34, noteInput.scrollHeight) + 'px';
-                        saveInstitutionsFromTable();
-                    };
-                    noteInput.onfocus = () => {
-                        noteInput.style.height = Math.max(60, noteInput.scrollHeight) + 'px';
-                    };
-                }
-                // "+ إضافة" buttons for min/max (set to 0 then show input)
-                if (showMinBtn) {
-                    showMinBtn.onclick = function() {
-                        let institutions = getInstitutionList();
-                        institutions[idx].min = "0";
-                        saveInstitutionsList(institutions);
-                        renderInstitutionsTable();
-                        updateDashboard();
-                    };
-                }
-                if (showMaxBtn) {
-                    showMaxBtn.onclick = function() {
-                        let institutions = getInstitutionList();
-                        institutions[idx].max = "0";
-                        saveInstitutionsList(institutions);
-                        renderInstitutionsTable();
-                        updateDashboard();
-                    };
-                }
-            });
-        }
-        function saveInstitutionsFromTable() {
-            const institutions = [];
-            Array.from(institutionsTbody.querySelectorAll('tr')).forEach(tr => {
-                institutions.push({
-                    name: tr.querySelector('.institution-name-text').textContent,
-                    need: tr.querySelector('.need-input') ? tr.querySelector('.need-input').value : "",
-                    min: tr.querySelector('.min-input') ? tr.querySelector('.min-input').value : "",
-                    max: tr.querySelector('.max-input') ? tr.querySelector('.max-input').value : "",
-                    note: tr.querySelector('.note-input') ? tr.querySelector('.note-input').value : ""
-                });
-            });
-            saveInstitutionsList(institutions);
-            updateDashboard();
-        }
-        function saveInstitutionsList(list) {
-            localStorage.setItem('institutions', JSON.stringify(list));
-        }
-        function getInstitutionList() {
-            return JSON.parse(localStorage.getItem('institutions')) || DEFAULT_INSTITUTIONS.slice();
-        }
-        // Modal logic
-        function openModal() {
-            modalBg.style.display = "flex";
-            addInstituteForm.reset();
-            modalMinLabel.style.display = "none";
-            modalMaxLabel.style.display = "none";
-        }
-        function closeModal() { modalBg.style.display = "none"; }
-        modalShowMin.onchange = () => { modalMinLabel.style.display = modalShowMin.checked ? "block" : "none"; };
-        modalShowMax.onchange = () => { modalMaxLabel.style.display = modalShowMax.checked ? "block" : "none"; };
-        modalCancelBtn.onclick = closeModal;
-        modalAddBtn.onclick = function(e) {
-            e.preventDefault();
-            addInstituteForm.requestSubmit();
-        }
-        addInstituteForm.onsubmit = function(e) {
-            e.preventDefault();
-            let name = modalInstituteName.value.trim();
-            let need = normalizeNumber(modalInstituteNeed.value);
-            let min = modalShowMin.checked ? normalizeNumber(modalInstituteMin.value) : "";
-            let max = modalShowMax.checked ? normalizeNumber(modalInstituteMax.value) : "";
-            let note = modalInstituteNote.value;
-            if (!name || !need) { alert("يجب إدخال اسم المؤسسة والاحتياج."); return; }
-            let institutions = getInstitutionList();
-            institutions.push({name, need, min, max, note});
-            saveInstitutionsList(institutions);
-            let bank = getBankList();
-            if (!bank.some(i => i.name === name)) {
-                bank.push({name, need, min, max, note});
-                saveBankList(bank);
-            }
-            closeModal();
-            renderInstitutionsTable();
-            updateDashboard();
+        let excelData = { headers: [], rows: [] };
+        let selectedRowData = { row: null, institutions: [] };
+        let lastResultsData = [];
+
+        const searchInput = document.getElementById('item-name-search');
+        const suggestionsContainer = document.getElementById('suggestions-container');
+
+        document.getElementById('load-excel-btn').onclick = function() {
+            const fileInput = document.getElementById('excel-file-input');
+            if (!fileInput.files.length) { alert("الرجاء اختيار ملف إكسل."); return; }
+            const reader = new FileReader();
+            reader.onload = e => {
+                const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+                if (jsonData.length > 1) {
+                    excelData = { headers: jsonData[0], rows: jsonData.slice(1) };
+                    alert(`✅ تم تحميل الملف بنجاح (${excelData.rows.length} صف).`);
+                } else { alert("الملف فارغ."); }
+            };
+            reader.readAsBinaryString(fileInput.files[0]);
         };
-        document.getElementById('add-institution-btn').onclick = openModal;
-        // List logic
-        function getBankList() {
-            return JSON.parse(localStorage.getItem(BANK_KEY)) || [];
-        }
-        function saveBankList(list) {
-            localStorage.setItem(BANK_KEY, JSON.stringify(list));
-        }
-        function openListModal() {
-            listModalBg.style.display = "flex";
-            let bank = getBankList();
-            let institutions = getInstitutionList();
-            let notAdded = bank.filter(b => !institutions.some(i => i.name === b.name));
-            if (notAdded.length === 0) {
-                listList.innerHTML = "<p style='text-align:center;'>لا توجد مؤسسات غير مضافة.</p>";
-            } else {
-                listList.innerHTML = notAdded.map((i, idx) => `
-                    <div class="list-item">
-                        <strong>${i.name}</strong> | احتياج: ${i.need}
-                        ${i.min ? `| الحد الأدنى: ${i.min}` : ""}
-                        ${i.max ? `| الحد الأقصى: ${i.max}` : ""}
-                        <button class="list-add-btn" data-idx="${idx}" style="float:left;">➕ إضافة</button>
-                        <br><span style="color:#bbb;font-size:0.98em;">${i.note||""}</span>
-                    </div>
-                `).join('');
-                Array.from(listList.querySelectorAll(".list-add-btn")).forEach(btn => {
-                    btn.onclick = function() {
-                        let idx = Number(this.dataset.idx);
-                        let bank = getBankList();
-                        let institutions = getInstitutionList();
-                        let inst = notAdded[idx];
-                        institutions.push({...inst});
-                        saveInstitutionsList(institutions);
-                        renderInstitutionsTable();
-                        updateDashboard();
-                        openListModal(); // Refresh list
-                    };
-                });
+        
+        // --- NEW: Autocomplete logic ---
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.trim().toLowerCase();
+            suggestionsContainer.innerHTML = '';
+            if (query.length < 4 || excelData.rows.length === 0) {
+                return;
             }
+
+            const suggestions = excelData.rows.filter(row =>
+                (row[0] && String(row[0]).toLowerCase().includes(query)) ||
+                (row[1] && String(row[1]).toLowerCase().includes(query))
+            ).slice(0, 10); // Limit to 10 suggestions
+
+            suggestions.forEach(row => {
+                const item = document.createElement('div');
+                item.className = 'suggestion-item';
+                item.textContent = `${row[0] || ''} - ${row[1] || ''}`;
+                item.onclick = () => {
+                    searchInput.value = row[1]; // Put item name in search box
+                    suggestionsContainer.innerHTML = ''; // Hide suggestions
+                    document.getElementById('search-excel-btn').click(); // Trigger search
+                };
+                suggestionsContainer.appendChild(item);
+            });
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-wrapper')) {
+                suggestionsContainer.innerHTML = '';
+            }
+        });
+
+        document.getElementById('search-excel-btn').onclick = function() {
+            const query = searchInput.value.trim().toLowerCase();
+            suggestionsContainer.innerHTML = ''; // Hide suggestions on search
+            if (!query) { alert("الرجاء إدخال نص للبحث."); return; }
+            if (excelData.rows.length === 0) { alert("الرجاء تحميل الملف أولاً."); return; }
+            const results = excelData.rows.filter(row =>
+                (row[0] && String(row[0]).toLowerCase().includes(query)) ||
+                (row[1] && String(row[1]).toLowerCase().includes(query))
+            );
+            if (results.length === 0) { alert(`لم يتم العثور على نتائج للبحث.`); }
+            else if (results.length === 1) { populateConfigSection(results[0]); }
+            else { showMultiResultModal(results); }
+        };
+        
+        function showMultiResultModal(results) {
+            const modal = document.getElementById('multi-results-modal');
+            const listContainer = document.getElementById('results-list');
+            listContainer.innerHTML = '';
+            results.forEach(row => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'results-list-item';
+                itemDiv.innerHTML = `<strong>${row[0] || 'N/A'}</strong><br>${row[1] || 'N/A'}`;
+                itemDiv.onclick = () => { populateConfigSection(row); modal.style.display = 'none'; };
+                listContainer.appendChild(itemDiv);
+            });
+            modal.style.display = 'flex';
         }
-        listBtn.onclick = openListModal;
-        listModalClose.onclick = () => { listModalBg.style.display = "none"; };
-        document.getElementById('reset-btn').onclick = () => {
-            document.getElementById('item-name').value = '';
-            document.getElementById('available-qty').value = '';
-            document.getElementById('force-percent-distribution').checked = false;
-            localStorage.removeItem('institutions');
-            renderInstitutionsTable();
-            updateDashboard();
+        
+        document.getElementById('multi-results-modal').onclick = (e) => { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; };
+
+        function populateConfigSection(row) {
+            document.getElementById('config-section').hidden = false;
             document.getElementById('results-section').hidden = true;
-        };
-        searchInstitutionsInput.oninput = function() {
-            let term = this.value.trim();
-            Array.from(institutionsTbody.querySelectorAll('tr')).forEach(tr => {
-                let name = tr.querySelector('.institution-name-text').textContent;
-                tr.style.display = (!term || name.includes(term)) ? "" : "none";
+            document.getElementById('available-qty-input').value = '';
+            document.getElementById('item-name-display').value = row[1] || 'غير متوفر';
+            document.getElementById('total-need-display').value = (parseInt(row[6], 10) || 0).toLocaleString();
+            const institutions = [];
+            const keywords = ["مستشفى", "قطاع", "مركز", "تأهيل", "اسنان", "حساسية", "صدرية", "سكري"];
+            excelData.headers.forEach((header, index) => {
+                if (header && header.includes("احتياج") && !header.includes("مصروف")) {
+                    const containsKeyword = keywords.some(k => header.includes(k));
+                    if (containsKeyword) {
+                        const institutionName = header.replace("احتياج", "").replace(/2025/g, "").trim();
+                        const needValue = parseInt(row[index], 10) || 0;
+                        if (institutionName && needValue > 0) institutions.push({ name: institutionName, need: needValue });
+                    }
+                }
             });
-        };
-        function calculateDistribution() {
-            let institutions = getInstitutionList();
-            let availableQuantity = normalizeNumber(document.getElementById('available-qty').value);
-            availableQuantity = parseInt(availableQuantity) || 0;
-            let totalNeed = institutions.reduce((sum, i) => sum + parseInt(i.need||0), 0);
-            let forcePercent = document.getElementById('force-percent-distribution').checked;
-            let distributed = institutions.map(i => ({...i}));
-            if (forcePercent) {
-                distributed.forEach(i => {
-                    i.distributedShare = Math.floor(((parseInt(i.need||0)/totalNeed)||0)*availableQuantity);
-                });
-                let remainder = availableQuantity - distributed.reduce((s,i)=>s+parseInt(i.distributedShare||0),0);
-                distributed.sort((a,b)=>((parseInt(b.need||0)/totalNeed)-parseInt(a.need||0)/totalNeed));
-                for(let j=0;j<remainder;j++) distributed[j%distributed.length].distributedShare += 1;
-            } else if (availableQuantity >= totalNeed) {
-                distributed.forEach(i => i.distributedShare = parseInt(i.need||0));
-            } else {
-                distributed.forEach(i => {
-                    i.distributedShare = Math.floor(((parseInt(i.need||0)/totalNeed)||0)*availableQuantity);
-                });
-                let remainder = availableQuantity - distributed.reduce((s,i)=>s+parseInt(i.distributedShare||0),0);
-                distributed.sort((a,b)=>((parseInt(b.need||0)/totalNeed)-parseInt(a.need||0)/totalNeed));
-                for(let j=0;j<remainder;j++) distributed[j%distributed.length].distributedShare += 1;
-            }
-            distributed.forEach(i => {
-                if(i.min && i.distributedShare < parseInt(i.min)) i.distributedShare = parseInt(i.min);
-                if(i.max && i.distributedShare > parseInt(i.max)) i.distributedShare = parseInt(i.max);
-            });
-            resultsData = distributed.map(i=>({
-                ...i,
-                percentage: totalNeed===0?0:((parseInt(i.need||0)/totalNeed)*100),
-                received:false
-            }));
-            lastDistributedTotal = distributed.reduce((s,i)=>s+parseInt(i.distributedShare||0),0);
-            displayResultsAsTable(`<strong>الكمية الموزعة:</strong> ${lastDistributedTotal}`);
+            selectedRowData = { row: row, institutions: institutions };
+            const toggleList = document.getElementById('institutions-toggle-list');
+            let tableHTML = `<table class="toggle-table"><thead><tr>
+                <th><input type="checkbox" id="toggle-all-institutions" checked></th>
+                <th>اسم المؤسسة</th><th>الاحتياج</th>
+                </tr></thead><tbody>`;
+            institutions.forEach(inst => { tableHTML += `<tr><td><input type="checkbox" class="institution-toggle" data-name="${inst.name}" checked></td><td>${inst.name}</td><td>${inst.need.toLocaleString()}</td></tr>`; });
+            toggleList.innerHTML = tableHTML + `</tbody></table>`;
+            document.getElementById('toggle-all-institutions').onchange = (e) => document.querySelectorAll('.institution-toggle').forEach(cb => cb.checked = e.target.checked);
         }
-        document.getElementById('calculate-btn').onclick = calculateDistribution;
-        function displayResultsAsTable(summary) {
-            const container = document.getElementById('results-table-container');
-            let tableHTML = `
-                <table class="institutions-table">
-                    <thead>
-                        <tr>
-                            <th>اسم المؤسسة</th>
-                            <th>الاحتياج</th>
-                            <th>كمية الحد الأدنى</th>
-                            <th>كمية الحد الأقصى</th>
-                            <th>النسبة (%)</th>
-                            <th>الحصة الموزعة</th>
-                            <th>ملاحظة</th>
-                            <th>تم الاستلام؟</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            let totalPercentage = 0, totalDistributed = 0;
-            resultsData.forEach((row, idx) => {
-                totalPercentage += row.percentage;
-                totalDistributed += parseInt(row.distributedShare||0);
-                tableHTML += `
-                    <tr>
-                        <td>${row.name}</td>
-                        <td>${row.need}</td>
-                        <td>${row.min||''}</td>
-                        <td>${row.max||''}</td>
-                        <td>${row.percentage.toFixed(2)}%</td>
-                        <td><strong>${row.distributedShare}</strong></td>
-                        <td>${row.note||''}</td>
-                        <td><input type="checkbox"></td>
-                    </tr>
-                `;
+        
+        document.getElementById('calculate-btn').onclick = function() {
+            const availableQty = parseInt(document.getElementById('available-qty-input').value.replace(/,/g, ''), 10);
+            if (isNaN(availableQty) || availableQty < 0) { alert("الرجاء إدخال كمية متوفرة صحيحة."); return; }
+            const forceFullDistribution = document.getElementById('force-full-dist-check').checked;
+            const activeInstitutions = selectedRowData.institutions.filter(inst => document.querySelector(`.institution-toggle[data-name="${inst.name}"]`).checked).map(inst => ({...inst})); 
+            if (activeInstitutions.length === 0) { alert("يجب تفعيل مؤسسة واحدة على الأقل للتوزيع."); return; }
+            const totalNeedOfActive = activeInstitutions.reduce((sum, i) => sum + i.need, 0);
+            let distributedQty = 0;
+            activeInstitutions.forEach(inst => {
+                let share = Math.floor((inst.need / totalNeedOfActive) * availableQty);
+                if (!forceFullDistribution) { share = Math.min(share, inst.need); }
+                inst.share = share;
+                distributedQty += share;
             });
-            tableHTML += `
-                <tr style="background:#232633;">
-                    <td><strong>المجموع</strong></td>
-                    <td></td><td></td><td></td>
-                    <td><strong>${totalPercentage.toFixed(2)}%</strong></td>
-                    <td><strong>${totalDistributed}</strong></td>
-                    <td></td><td></td>
-                </tr>
-            </tbody></table>`;
+            let remainder = availableQty - distributedQty;
+            activeInstitutions.sort((a, b) => (b.need / totalNeedOfActive) - (a.need / totalNeedOfActive));
+            for (let i = 0; i < remainder; i++) {
+                let inst = activeInstitutions[i % activeInstitutions.length];
+                if (forceFullDistribution || inst.share < inst.need) { inst.share++; } else { remainder++; }
+            }
+            displayResults(activeInstitutions, totalNeedOfActive, availableQty);
+        };
+
+        // --- MODIFICATION: Updated displayResults to remove surplus column ---
+        function displayResults(institutions, totalNeedOfActive, availableQty) {
+            lastResultsData = institutions;
+            const container = document.getElementById('results-table-container');
+            const totalDistributed = institutions.reduce((sum, inst) => sum + inst.share, 0);
+            const overallCoveragePercentage = totalNeedOfActive > 0 ? ((totalDistributed / totalNeedOfActive) * 100).toFixed(1) : 0;
+            const summaryHTML = `<div class="results-summary"><span><strong>الكمية المتوفرة:</strong> ${availableQty.toLocaleString()}</span> | <span><strong>إجمالي الموزع:</strong> ${totalDistributed.toLocaleString()}</span> | <span><strong>المتبقي لديك:</strong> ${(availableQty - totalDistributed).toLocaleString()}</span></div>`;
+            let tableHTML = summaryHTML + `<table class="results-table"><thead><tr>
+                <th>اسم المؤسسة</th><th>الاحتياج السنوي</th><th>الكمية الموزعة</th><th>النسبة من إجمالي الاحتياج</th>
+                </tr></thead><tbody>`;
+            institutions.forEach(inst => {
+                const percentageOfTotalNeed = totalNeedOfActive > 0 ? ((inst.need / totalNeedOfActive) * 100).toFixed(1) : 0;
+                tableHTML += `<tr>
+                    <td>${inst.name}</td><td>${inst.need.toLocaleString()}</td>
+                    <td style="font-weight:bold; color: var(--success);">${inst.share.toLocaleString()}</td>
+                    <td>${percentageOfTotalNeed}%</td></tr>`;
+            });
+            tableHTML += `</tbody><tfoot><tr>
+                <td>المجموع الكلي</td><td>${totalNeedOfActive.toLocaleString()}</td>
+                <td>${totalDistributed.toLocaleString()}</td>
+                <td>${overallCoveragePercentage}% (إجمالي التغطية)</td></tr></tfoot></table>`;
             container.innerHTML = tableHTML;
             document.getElementById('results-section').hidden = false;
         }
 
-        // Export CSV
-        exportCsvBtn.onclick = function() {
-            if (!resultsData || !resultsData.length) {
-                alert("لا توجد بيانات للتصدير.");
-                return;
-            }
-            const itemName = document.getElementById('item-name').value.trim();
-            const availableQty = normalizeNumber(document.getElementById('available-qty').value);
-            const leftQty = availableQty - lastDistributedTotal;
-            const header = [
-                "اسم المادة",
-                "الكمية الإجمالية",
-                "الكمية الباقية بعد التحصيص",
-                "اسم المؤسسة",
-                "الاحتياج",
-                "كمية الحد الأدنى",
-                "كمية الحد الأقصى",
-                "النسبة (%)",
-                "الحصة الموزعة",
-                "ملاحظة"
-            ];
-            const rows = resultsData.map(row =>
-                [
-                    `"${itemName}"`,
-                    `"${availableQty}"`,
-                    `"${leftQty}"`,
-                    `"${row.name}"`,
-                    `"${row.need}"`,
-                    `"${row.min||""}"`,
-                    `"${row.max||""}"`,
-                    `"${row.percentage.toFixed(2)}%"`,
-                    `"${row.distributedShare}"`,
-                    `"${row.note||""}"`
-                ].join(',')
-            );
-            const csv = [header.join(','), ...rows].join('\r\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        // --- MODIFICATION: Updated export to remove surplus column ---
+        document.getElementById('export-csv-btn').onclick = function() {
+            if (lastResultsData.length === 0) { alert("لا توجد نتائج لتصديرها."); return; }
+            const itemName = document.getElementById('item-name-display').value;
+            let csvContent = "اسم المادة,اسم المؤسسة,الاحتياج السنوي,الكمية الموزعة,النسبة من إجمالي الاحتياج\n";
+            const totalNeedOfActive = lastResultsData.reduce((sum, i) => sum + i.need, 0);
+            lastResultsData.forEach(inst => {
+                const percentageOfTotalNeed = totalNeedOfActive > 0 ? ((inst.need / totalNeedOfActive) * 100).toFixed(1) : "0.0";
+                const row = `"${itemName}","${inst.name}",${inst.need},${inst.share},"${percentageOfTotalNeed}%"`;
+                csvContent += row + "\n";
+            });
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'distribution.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            link.setAttribute("href", url);
+            const safeItemName = itemName.replace(/[^a-z0-9]/gi, '_');
+            link.setAttribute("download", `distribution_${safeItemName}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         };
-
-        // Export TXT
-        exportTxtBtn.onclick = function() {
-            if (!resultsData || !resultsData.length) {
-                alert("لا توجد بيانات للتصدير.");
-                return;
-            }
-            const itemName = document.getElementById('item-name').value.trim();
-            const availableQty = normalizeNumber(document.getElementById('available-qty').value);
-            const leftQty = availableQty - lastDistributedTotal;
-            const header = "اسم المادة\tالكمية الإجمالية\tالكمية الباقية بعد التحصيص\tاسم المؤسسة\tالاحتياج\tكمية الحد الأدنى\tكمية الحد الأقصى\tالنسبة (%)\tالحصة الموزعة\tملاحظة";
-            const rows = resultsData.map(row =>
-                [
-                    itemName,
-                    availableQty,
-                    leftQty,
-                    row.name,
-                    row.need,
-                    row.min||"",
-                    row.max||"",
-                    row.percentage.toFixed(2)+"%",
-                    row.distributedShare,
-                    row.note||""
-                ].join('\t')
-            );
-            const txt = [header, ...rows].join('\r\n');
-            const blob = new Blob([txt], { type: 'text/plain;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'distribution.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        };
-
-        renderInstitutionsTable();
-        updateDashboard();
     </script>
 </body>
 </html>
