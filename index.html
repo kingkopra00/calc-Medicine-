@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة التوزيعات - نسخة سريعة ومستقرة</title>
+    <title>نظام إدارة التوزيعات - النسخة النهائية المستقرة</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -21,6 +21,7 @@
         .btn { background: var(--panel-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 20px; font-size: 1em; cursor: pointer; width: 100%; transition: background-color 0.2s, border-color 0.2s; }
         .btn:hover { border-color: var(--accent); }
         .btn-primary { background: var(--accent); color: #fff; border: none; }
+        .btn-success { background: var(--success); color: #fff; border: none; }
         .btn-danger { background-color: var(--danger); color: #fff; border: none; }
         #data-status { text-align: center; color: var(--accent); font-weight: bold; margin-bottom: 1em; min-height: 1.2em; }
         .search-wrapper { position: relative; }
@@ -30,9 +31,11 @@
         }
         #suggestions-container.suggestions-above { top: auto; bottom: 100%; }
         .suggestion-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border); }
-        .suggestion-item:last-child { border-bottom: none; }
         .suggestion-item:hover { background-color: #3a3f4b; }
         .modal-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1001; }
+        .modal-content { background: var(--panel-bg); padding: 20px; border-radius: 12px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+        .results-list-item { padding: 15px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; }
+        .results-list-item:hover { background-color: #3a3f4b; }
         .options-row { display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 12px; background: #2d3241; border-radius: 8px; }
         .results-summary { text-align: center; font-size: 1.1em; margin-bottom: 1em; background: #2d3241; padding: 10px; border-radius: 8px; }
         .results-table { width: 100%; border-collapse: collapse; font-size: 0.95em; margin-top: 1em; table-layout: fixed; }
@@ -40,13 +43,16 @@
         .results-table tfoot td { font-weight: bold; border-top: 2px solid var(--accent); }
         #institutions-toggle-list { padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
         #print-header { display: none; }
+        
         @media print {
-            body { background: #fff; color: #000; font-family: Arial, sans-serif; font-size: 10pt; }
+            body { background: #fff; color: #000; }
             main, .section { margin: 0; padding: 0; border: none; box-shadow: none; background: #fff; }
             .no-print { display: none !important; }
             #print-header { display: block; text-align: center; margin-bottom: 2em; }
+            #print-header h1 { font-size: 16pt; margin: 0; color: #000; }
+            #print-header p { font-size: 12pt; margin: 5px 0; color: #000; }
             h1, h2 { display: none; }
-            .results-table { border: 1px solid #ccc; font-size: 9pt; }
+            .results-table { border: 1px solid #ccc; }
             @page { size: A4; margin: 20mm; }
         }
     </style>
@@ -60,7 +66,7 @@
             <p id="data-status"></p>
             <div class="form-row">
                 <div>
-                    <label>اختر سنة الاحتياج للتحميل</label>
+                    <label>اختر سنة الاحتياج للتحميل (يتم البحث تلقائياً)</label>
                     <select id="year-select">
                         <option value="">-- جاري البحث عن الملفات... --</option>
                     </select>
@@ -85,13 +91,51 @@
         </div>
         
         <div class="section no-print" id="config-section" hidden>
+            <h2>الخطوة 2: تهيئة التوزيع</h2>
+            <div class="form-row">
+                 <div><label for="item-name-display">اسم المادة</label><input type="text" id="item-name-display" readonly></div>
+                <div><label for="total-need-display">إجمالي الاحتياج المحدد</label><input type="text" id="total-need-display" readonly></div>
             </div>
+            <label>المؤسسات المراد توزيع الحصة لها:</label>
+            <div id="institutions-toggle-list"></div>
+            <div class="options-row">
+                <input type="checkbox" id="force-full-dist-check" style="width: 20px; height: 20px;">
+                <label for="force-full-dist-check" style="margin: 0;">توزيع كامل الكمية (حتى لو أكبر من الاحتياج)</label>
+            </div>
+            <div class="form-row" style="margin-top: 20px;">
+                 <div>
+                    <label for="available-qty-input">✅ الكمية المتوفرة لديك</label>
+                    <input type="text" id="available-qty-input" placeholder="أرقام فقط" inputmode="numeric">
+                </div>
+                <div>
+                    <label for="package-size-input">📦 حجم العبوة (اختياري)</label>
+                    <input type="text" id="package-size-input" placeholder="مثال: 30" inputmode="numeric">
+                </div>
+                 <div><button id="calculate-btn" class="btn btn-success">🧮 احتساب الحصص</button></div>
+            </div>
+        </div>
         <div class="section" id="results-section" hidden>
+            <div id="print-header">
+                <h1 id="print-item-name"></h1>
+                <p id="print-item-code"></p>
             </div>
+            <h2 class="no-print">الخطوة 3: النتائج النهائية</h2>
+            <div id="results-table-container"></div>
+            <div class="form-row no-print" style="margin-top: 20px;">
+                <button id="print-btn" class="btn">🖨️ طباعة التقرير</button>
+                <button id="export-csv-btn" class="btn" style="background-color: #17a2b8; border:none;">💾 تصدير CSV</button>
+            </div>
+        </div>
         <div class="modal-bg no-print" id="multi-results-modal">
+            <div class="modal-content">
+                <h3>تم العثور على عدة نتائج، الرجاء اختيار المادة الصحيحة:</h3>
+                <div id="results-list"></div>
             </div>
+        </div>
         <footer class="no-print">
-            </footer>
+            <p>الصيدلاني علي محمد حسن الناجي</p>
+            <p>قسم الصيدلة - دائرة صحة المثنى</p>
+        </footer>
     </main>
     
     <script>
@@ -105,51 +149,13 @@
         const forceDistCheck = document.getElementById('force-full-dist-check');
         let debounceTimer;
 
-        // --- MODIFIED: Debounced search for performance ---
-        searchInput.addEventListener('input', () => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                const query = searchInput.value.trim().toLowerCase();
-                suggestionsContainer.innerHTML = '';
-                if (query.length < 4 || excelData.rows.length === 0) return;
-
-                const suggestions = excelData.rows.filter(row =>
-                    (row[0] && String(row[0]).toLowerCase().includes(query)) ||
-                    (row[1] && String(row[1]).toLowerCase().includes(query))
-                ).slice(0, 15);
-
-                if (suggestions.length === 0) return;
-                
-                suggestions.forEach(row => {
-                    const item = document.createElement('div');
-                    item.className = 'suggestion-item';
-                    item.textContent = `${row[0] || ''} - ${row[1] || ''}`;
-                    item.onclick = () => {
-                        searchInput.value = row[1];
-                        suggestionsContainer.innerHTML = '';
-                        document.getElementById('search-excel-btn').click();
-                    };
-                    suggestionsContainer.appendChild(item);
-                });
-
-                const inputRect = searchInput.getBoundingClientRect();
-                const spaceBelow = window.innerHeight - inputRect.bottom;
-                suggestionsContainer.classList.remove('suggestions-above');
-                if (spaceBelow < suggestionsContainer.scrollHeight && inputRect.top > suggestionsContainer.scrollHeight) {
-                    suggestionsContainer.classList.add('suggestions-above');
-                }
-            }, 300); // Wait 300ms after user stops typing
-        });
-
-        // --- MODIFIED: Year discovery with caching ---
         async function discoverAvailableYears() {
             const yearSelect = document.getElementById('year-select');
             const cacheKey = 'cachedYearsList';
             const cachedData = JSON.parse(localStorage.getItem(cacheKey));
             const now = new Date().getTime();
 
-            // Use cache if it's less than 1 hour old
-            if (cachedData && (now - cachedData.timestamp < 3600000)) {
+            if (cachedData && (now - cachedData.timestamp < 3600000)) { // 1 hour cache
                 populateYearSelect(cachedData.years);
                 return;
             }
@@ -162,7 +168,7 @@
                     throw new Error('فشل الاتصال بـ GitHub.');
                 }
                 const files = await response.json();
-                const yearRegex = /^data(\d{4})\.xlsx$/;
+                const yearRegex = /^data(\d{4})\.xlsx$/i;
                 const availableYears = [];
                 for (const file of files) {
                     const match = file.name.match(yearRegex);
@@ -173,13 +179,15 @@
             } catch (error) {
                 console.error("Discovery Error:", error);
                 yearSelect.innerHTML = `<option value="">-- ${error.message} --</option>`;
+                const cached = JSON.parse(localStorage.getItem(cacheKey));
+                if (cached) populateYearSelect(cached.years); // Fallback to old cache
             }
         }
         
         function populateYearSelect(years) {
             const yearSelect = document.getElementById('year-select');
             yearSelect.innerHTML = '';
-            if (years.length > 0) {
+            if (years && years.length > 0) {
                 years.sort((a, b) => b - a);
                 yearSelect.innerHTML = '<option value="">-- اختر السنة --</option>';
                 years.forEach(year => {
@@ -189,7 +197,7 @@
                     yearSelect.appendChild(option);
                 });
             } else {
-                yearSelect.innerHTML = '<option value="">-- لم يتم العثور على ملفات --</option>';
+                yearSelect.innerHTML = '<option value="">-- لم يتم العثور على ملفات (مثال: data2025.xlsx) --</option>';
             }
         }
         
@@ -201,7 +209,6 @@
             forceDistCheck.onchange = (e) => localStorage.setItem('forceFullDistSetting', e.target.checked);
         });
 
-        // --- MODIFIED: Fetch from server with cache busting ---
         document.getElementById('load-from-server-btn').onclick = function() {
             const selectedYear = document.getElementById('year-select').value;
             if (!selectedYear) { alert('الرجاء اختيار سنة الاحتياج أولاً.'); return; }
@@ -224,15 +231,20 @@
                     statusEl.textContent = '⚠️ فشل تحميل البيانات.';
                 });
         };
-        
+
         function processExcelData(workbook) {
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-            if (jsonData.length > 1) {
-                excelData = { headers: jsonData[0] || [], rows: jsonData.slice(1) };
-                saveDataToLocal(excelData);
-                alert(`✅ تم تحميل وتحديث البيانات بنجاح.`);
-                loadDataFromLocal();
-            } else { alert("الملف فارغ أو غير صالح."); }
+            try {
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+                if (jsonData.length > 1) {
+                    excelData = { headers: jsonData[0] || [], rows: jsonData.slice(1) };
+                    saveDataToLocal(excelData);
+                    alert(`✅ تم تحميل وتحديث البيانات بنجاح.`);
+                    loadDataFromLocal();
+                } else { alert("الملف فارغ أو غير صالح."); }
+            } catch (error) {
+                alert('خطأ في معالجة ملف الإكسل. تأكد من أن الملف غير تالف وأن التنسيق صحيح.');
+                console.error(error);
+            }
         }
 
         document.getElementById('load-excel-btn').onclick = function() {
@@ -246,8 +258,48 @@
             reader.readAsBinaryString(fileInput.files[0]);
         };
 
-        // All other functions are unchanged and complete.
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const query = searchInput.value.trim().toLowerCase();
+                suggestionsContainer.innerHTML = '';
+                if (query.length < 4 || excelData.rows.length === 0) return;
+                const suggestions = excelData.rows.filter(row =>
+                    (row[0] && String(row[0]).toLowerCase().includes(query)) ||
+                    (row[1] && String(row[1]).toLowerCase().includes(query))
+                ).slice(0, 15);
+                if (suggestions.length === 0) return;
+                suggestions.forEach(row => {
+                    const item = document.createElement('div');
+                    item.className = 'suggestion-item';
+                    item.textContent = `${row[0] || ''} - ${row[1] || ''}`;
+                    item.onclick = () => {
+                        searchInput.value = row[1];
+                        suggestionsContainer.innerHTML = '';
+                        document.getElementById('search-excel-btn').click();
+                    };
+                    suggestionsContainer.appendChild(item);
+                });
+                const inputRect = searchInput.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - inputRect.bottom;
+                suggestionsContainer.classList.remove('suggestions-above');
+                if (spaceBelow < suggestionsContainer.scrollHeight && inputRect.top > suggestionsContainer.scrollHeight) {
+                    suggestionsContainer.classList.add('suggestions-above');
+                }
+            }, 300);
+        });
+        
+        function normalizeAndCleanInput(value) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            let str = String(value);
+            for (let i = 0; i < 10; i++) str = str.replace(new RegExp(arabicNumerals[i], 'g'), i);
+            return str.replace(/[^0-9]/g, '');
+        }
+        availableQtyInput.addEventListener('input', (e) => e.target.value = normalizeAndCleanInput(e.target.value));
+        packageSizeInput.addEventListener('input', (e) => e.target.value = normalizeAndCleanInput(e.target.value));
+
         function saveDataToLocal(data) { try { localStorage.setItem('savedDistributionData', JSON.stringify(data)); } catch (e) { alert("خطأ: لا يمكن حفظ البيانات."); console.error(e); } }
+        
         function loadDataFromLocal() {
             const savedData = localStorage.getItem('savedDistributionData');
             const statusEl = document.getElementById('data-status');
@@ -260,17 +312,177 @@
                 } catch (e) { statusEl.textContent = "⚠️ فشل تحميل البيانات المحفوظة."; localStorage.removeItem('savedDistributionData'); }
             } else { statusEl.textContent = "يرجى رفع ملف الإكسل للبدء."; }
         }
+
         document.getElementById('clear-data-btn').onclick = () => { if (confirm('هل أنت متأكد؟')) { localStorage.removeItem('savedDistributionData'); location.reload(); } };
-        document.addEventListener('click', (e) => { if (!e.target.closest('.search-wrapper')) { suggestionsContainer.innerHTML = ''; } });
-        document.getElementById('search-excel-btn').onclick = function() { /* ... unchanged ... */ };
-        function showMultiResultModal(results) { /* ... unchanged ... */ };
-        document.getElementById('multi-results-modal').onclick = (e) => { /* ... unchanged ... */ };
-        function populateConfigSection(row) { /* ... unchanged ... */ };
-        document.getElementById('calculate-btn').onclick = function() { /* ... fixed calculation logic ... */ };
-        function displayResults(institutions, totalNeedOfActive, availableQty) { /* ... unchanged ... */ };
-        document.getElementById('print-btn').onclick = () => window.print();
-        document.getElementById('export-csv-btn').onclick = function() { /* ... unchanged ... */ };
         
+        document.addEventListener('click', (e) => { if (!e.target.closest('.search-wrapper')) { suggestionsContainer.innerHTML = ''; } });
+        
+        document.getElementById('search-excel-btn').onclick = function() {
+            const query = searchInput.value.trim().toLowerCase();
+            suggestionsContainer.innerHTML = '';
+            if (!query) { alert("الرجاء إدخال نص للبحث."); return; }
+            if (excelData.rows.length === 0) { alert("يرجى تحميل بيانات الإكسل أولاً."); return; }
+            const results = excelData.rows.filter(row => (row && row[1] && String(row[1]).toLowerCase().includes(query)) || (row && row[0] && String(row[0]).toLowerCase().includes(query)));
+            if (results.length === 0) { alert(`لم يتم العثور على نتائج للبحث.`); }
+            else if (results.length === 1) { populateConfigSection(results[0]); }
+            else { showMultiResultModal(results); }
+        };
+        
+        function showMultiResultModal(results) {
+            const modal = document.getElementById('multi-results-modal');
+            const listContainer = modal.querySelector('#results-list');
+            listContainer.innerHTML = '';
+            results.forEach(row => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'results-list-item';
+                itemDiv.innerHTML = `<strong>${row[0] || 'N/A'}</strong><br>${row[1] || 'N/A'}`;
+                itemDiv.onclick = () => { populateConfigSection(row); modal.style.display = 'none'; };
+                listContainer.appendChild(itemDiv);
+            });
+            modal.style.display = 'flex';
+        }
+        
+        document.getElementById('multi-results-modal').onclick = (e) => { if (e.target.classList.contains('modal-bg')) e.target.style.display = 'none'; };
+
+        function populateConfigSection(row) {
+            document.getElementById('config-section').hidden = false;
+            document.getElementById('results-section').hidden = true;
+            availableQtyInput.value = '';
+            packageSizeInput.value = '';
+            document.getElementById('item-name-display').value = row[1] || 'غير متوفر';
+            document.getElementById('total-need-display').value = (parseInt(row[6], 10) || 0).toLocaleString();
+            const institutions = [];
+            const keywords = ["مستشفى", "قطاع", "مركز", "تأهيل", "اسنان", "حساسية", "صدرية", "سكري"];
+            excelData.headers.forEach((header, index) => {
+                if (header && header.toLowerCase().includes("احتياج") && !header.toLowerCase().includes("مصروف")) {
+                    const containsKeyword = keywords.some(k => header.toLowerCase().includes(k));
+                    if (containsKeyword) {
+                        const institutionName = header.replace(/احتياج/i, "").replace(/202\d/g, "").trim();
+                        const needValue = parseInt(row[index], 10) || 0;
+                        if (institutionName && needValue > 0) institutions.push({ name: institutionName, need: needValue });
+                    }
+                }
+            });
+            selectedRowData = { row: row, institutions: institutions };
+            const toggleList = document.getElementById('institutions-toggle-list');
+            let tableHTML = `<table class="toggle-table"><thead><tr><th><input type="checkbox" id="toggle-all-institutions" checked></th><th>اسم المؤسسة</th><th>الاحتياج</th></tr></thead><tbody>`;
+            institutions.forEach(inst => { tableHTML += `<tr><td><input type="checkbox" class="institution-toggle" data-name="${inst.name}" checked></td><td>${inst.name}</td><td>${inst.need.toLocaleString()}</td></tr>`; });
+            toggleList.innerHTML = tableHTML + `</tbody></table>`;
+            document.getElementById('toggle-all-institutions').onchange = (e) => document.querySelectorAll('.institution-toggle').forEach(cb => cb.checked = e.target.checked);
+        }
+        
+        document.getElementById('calculate-btn').onclick = function() {
+            const availableQty = parseInt(availableQtyInput.value, 10);
+            const packageSize = parseInt(packageSizeInput.value, 10) || 1;
+            if (isNaN(availableQty)) { alert("الرجاء إدخال كمية متوفرة صحيحة."); return; }
+            const activeInstitutions = selectedRowData.institutions.filter(inst => document.querySelector(`.institution-toggle[data-name="${inst.name}"]`).checked).map(inst => ({...inst})); 
+            if (activeInstitutions.length === 0) { alert("يجب تفعيل مؤسسة واحدة على الأقل للتوزيع."); return; }
+            const totalNeedOfActive = activeInstitutions.reduce((sum, i) => sum + i.need, 0);
+            activeInstitutions.forEach(inst => {
+                let share = (totalNeedOfActive > 0) ? Math.floor((inst.need / totalNeedOfActive) * availableQty) : 0;
+                if (!forceDistCheck.checked) share = Math.min(share, inst.need);
+                inst.share = share;
+            });
+            let distributedQty = activeInstitutions.reduce((sum, inst) => sum + inst.share, 0);
+            let remainder = availableQty - distributedQty;
+            activeInstitutions.sort((a, b) => b.need - a.need);
+            let i = 0;
+            while(remainder > 0) {
+                const inst = activeInstitutions[i % activeInstitutions.length];
+                if (forceDistCheck.checked || inst.share < inst.need) {
+                    inst.share++;
+                    remainder--;
+                }
+                i++;
+                if (i > totalNeedOfActive) break;
+            }
+            activeInstitutions.forEach(inst => {
+                inst.roundedShare = Math.floor(inst.share / packageSize) * packageSize;
+            });
+            if (packageSize > 1) {
+                let totalRoundedDistributed = activeInstitutions.reduce((sum, inst) => sum + inst.roundedShare, 0);
+                let roundingRemainder = availableQty - totalRoundedDistributed;
+                while (roundingRemainder >= packageSize) {
+                    let bestCandidate = null; let maxLoss = -1;
+                    activeInstitutions.forEach(inst => {
+                        const roundingLoss = inst.share - inst.roundedShare;
+                        if (roundingLoss > maxLoss && (forceDistCheck.checked || (inst.roundedShare + packageSize <= inst.need))) {
+                           maxLoss = roundingLoss; bestCandidate = inst;
+                        }
+                    });
+                    if (bestCandidate) {
+                        bestCandidate.roundedShare += packageSize;
+                        roundingRemainder -= packageSize;
+                    } else { break; }
+                }
+            }
+            displayResults(activeInstitutions, totalNeedOfActive, availableQty);
+        };
+
+        function displayResults(institutions, totalNeedOfActive, availableQty) {
+            lastResultsData = institutions;
+            const container = document.getElementById('results-table-container');
+            const packageSize = parseInt(packageSizeInput.value, 10) || 1;
+            const itemCode = selectedRowData.row[0] || 'غير متوفر';
+            const itemName = selectedRowData.row[1] || 'غير متوفر';
+            document.getElementById('print-item-name').textContent = `تقرير توزيع مادة: ${itemName}`;
+            document.getElementById('print-item-code').textContent = `الكود: ${itemCode}`;
+            const totalDistributed = institutions.reduce((sum, inst) => sum + inst.share, 0);
+            const totalRoundedDistributed = institutions.reduce((sum, inst) => sum + inst.roundedShare, 0);
+            const finalTotalDistributed = packageSize > 1 ? totalRoundedDistributed : totalDistributed;
+            const overallCoveragePercentage = totalNeedOfActive > 0 ? ((finalTotalDistributed / totalNeedOfActive) * 100).toFixed(1) : 0;
+            const summaryHTML = `<div class="results-summary no-print"><span><strong>الكمية المتوفرة:</strong> ${availableQty.toLocaleString()}</span> | <span><strong>إجمالي الموزع:</strong> ${finalTotalDistributed.toLocaleString()}</span> | <span><strong>المتبقي لديك:</strong> ${(availableQty - finalTotalDistributed).toLocaleString()}</span></div>`;
+            let tableHTML = summaryHTML + `<table class="results-table"><thead><tr><th>اسم المؤسسة</th><th>الاحتياج</th><th>الحصة المحسوبة</th>`;
+            if (packageSize > 1) { tableHTML += `<th>الحصة النهائية (بالعبوات)</th><th>عدد العبوات</th>`; }
+            tableHTML += `<th>النسبة من الاحتياج</th></tr></thead><tbody>`;
+            institutions.forEach(inst => {
+                const percentageOfTotalNeed = totalNeedOfActive > 0 ? ((inst.need / totalNeedOfActive) * 100).toFixed(1) : 0;
+                tableHTML += `<tr><td>${inst.name}</td><td>${inst.need.toLocaleString()}</td><td>${inst.share.toLocaleString()}</td>`;
+                if (packageSize > 1) {
+                    tableHTML += `<td style="font-weight:bold; color: var(--success);">${inst.roundedShare.toLocaleString()}</td>`;
+                    tableHTML += `<td>${inst.roundedShare / packageSize} علب</td>`;
+                }
+                tableHTML += `<td>${percentageOfTotalNeed}%</td></tr>`;
+            });
+            const totalPackages = packageSize > 1 ? (totalRoundedDistributed / packageSize) : 0;
+            tableHTML += `</tbody><tfoot><tr><td>المجموع الكلي</td><td>${totalNeedOfActive.toLocaleString()}</td><td>${totalDistributed.toLocaleString()}</td>`;
+            if (packageSize > 1) {
+                tableHTML += `<td>${totalRoundedDistributed.toLocaleString()}</td><td>${totalPackages} علب</td>`;
+            }
+            tableHTML += `<td>${overallCoveragePercentage}% (إجمالي التغطية)</td></tr></tfoot></table>`;
+            container.innerHTML = tableHTML;
+            document.getElementById('results-section').hidden = false;
+        }
+
+        document.getElementById('print-btn').onclick = () => window.print();
+
+        document.getElementById('export-csv-btn').onclick = function() {
+            if (lastResultsData.length === 0) { alert("لا توجد نتائج لتصديرها."); return; }
+            const itemName = document.getElementById('item-name-display').value;
+            const packageSize = parseInt(packageSizeInput.value, 10) || 1;
+            let csvHeaders = "اسم المادة,اسم المؤسسة,الاحتياج السنوي,الحصة النهائية الموزعة,";
+            if(packageSize > 1) csvHeaders += "عدد العبوات,";
+            csvHeaders += "النسبة من إجمالي الاحتياج\n";
+            let csvContent = csvHeaders;
+            const totalNeedOfActive = lastResultsData.reduce((sum, i) => sum + i.need, 0);
+            lastResultsData.forEach(inst => {
+                const finalShare = packageSize > 1 ? inst.roundedShare : inst.share;
+                const percentageOfTotalNeed = totalNeedOfActive > 0 ? ((inst.need / totalNeedOfActive) * 100).toFixed(1) : "0.0";
+                let row = `"${itemName}","${inst.name}",${inst.need},${finalShare},`;
+                if(packageSize > 1) row += `"${inst.roundedShare / packageSize}",`;
+                row += `"${percentageOfTotalNeed}%"`;
+                csvContent += row + "\n";
+            });
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            const safeItemName = itemName.replace(/[^a-z0-9]/gi, '_');
+            link.setAttribute("download", `distribution_${safeItemName}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
     </script>
 </body>
 </html>
