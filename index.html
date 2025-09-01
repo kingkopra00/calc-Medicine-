@@ -113,6 +113,9 @@
                 </div>
                  <div><button id="calculate-btn" class="btn btn-success">🧮 احتساب الحصص</button></div>
             </div>
+             <div style="margin-top: 1em;">
+                 <button id="reset-btn" class="btn btn-danger">🔄 تصفير والبدء من جديد</button>
+            </div>
         </div>
         <div class="section" id="results-section" hidden>
             <div id="print-header">
@@ -133,7 +136,7 @@
             </div>
         </div>
         <footer class="no-print">
-            <p>الصيدلاني علي محمد حسن الناجي</p>
+            <p>علي محمد حسن</p>
             <p>قسم الصيدلة - دائرة صحة المثنى</p>
         </footer>
     </main>
@@ -154,12 +157,10 @@
             const cacheKey = 'cachedYearsList';
             const cachedData = JSON.parse(localStorage.getItem(cacheKey));
             const now = new Date().getTime();
-
-            if (cachedData && (now - cachedData.timestamp < 3600000)) { // 1 hour cache
+            if (cachedData && (now - cachedData.timestamp < 3600000)) {
                 populateYearSelect(cachedData.years);
                 return;
             }
-
             const apiUrl = 'https://api.github.com/repos/kingkopra00/calc-Medicine-/contents/';
             try {
                 const response = await fetch(apiUrl);
@@ -180,7 +181,7 @@
                 console.error("Discovery Error:", error);
                 yearSelect.innerHTML = `<option value="">-- ${error.message} --</option>`;
                 const cached = JSON.parse(localStorage.getItem(cacheKey));
-                if (cached) populateYearSelect(cached.years); // Fallback to old cache
+                if (cached) populateYearSelect(cached.years);
             }
         }
         
@@ -215,25 +216,21 @@
             const excelFileUrl = `https://raw.githubusercontent.com/kingkopra00/calc-Medicine-/main/data${selectedYear}.xlsx?t=${new Date().getTime()}`;
             const statusEl = document.getElementById('data-status');
             statusEl.textContent = `جاري تحميل بيانات سنة ${selectedYear} من السيرفر...`;
-            
             fetch(excelFileUrl)
                 .then(response => {
-                    if (!response.ok) { throw new Error('فشل تحميل الملف. تأكد من اتصالك بالإنترنت ومن وجود الملف على GitHub.'); }
+                    if (!response.ok) { throw new Error('فشل تحميل الملف.'); }
                     return response.arrayBuffer();
                 })
-                .then(arrayBuffer => {
-                    const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
-                    processExcelData(workbook);
-                })
+                .then(arrayBuffer => processExcelData(new Uint8Array(arrayBuffer), 'array'))
                 .catch(error => {
-                    console.error('Fetch error:', error);
                     alert(`خطأ: ${error.message}`);
                     statusEl.textContent = '⚠️ فشل تحميل البيانات.';
                 });
         };
 
-        function processExcelData(workbook) {
+        function processExcelData(data, type) {
             try {
+                const workbook = XLSX.read(data, {type: type});
                 const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
                 if (jsonData.length > 1) {
                     excelData = { headers: jsonData[0] || [], rows: jsonData.slice(1) };
@@ -242,7 +239,7 @@
                     loadDataFromLocal();
                 } else { alert("الملف فارغ أو غير صالح."); }
             } catch (error) {
-                alert('خطأ في معالجة ملف الإكسل. تأكد من أن الملف غير تالف وأن التنسيق صحيح.');
+                alert('خطأ في معالجة ملف الإكسل.');
                 console.error(error);
             }
         }
@@ -251,10 +248,7 @@
             const fileInput = document.getElementById('excel-file-input');
             if (!fileInput.files.length) { alert("الرجاء اختيار ملف إكسل."); return; }
             const reader = new FileReader();
-            reader.onload = e => {
-                const workbook = XLSX.read(e.target.result, { type: 'binary' });
-                processExcelData(workbook);
-            };
+            reader.onload = e => processExcelData(e.target.result, 'binary');
             reader.readAsBinaryString(fileInput.files[0]);
         };
 
@@ -276,7 +270,7 @@
                     item.onclick = () => {
                         searchInput.value = row[1];
                         suggestionsContainer.innerHTML = '';
-                        document.getElementById('search-excel-btn').click();
+                        performSearch();
                     };
                     suggestionsContainer.appendChild(item);
                 });
@@ -297,8 +291,13 @@
         }
         availableQtyInput.addEventListener('input', (e) => e.target.value = normalizeAndCleanInput(e.target.value));
         packageSizeInput.addEventListener('input', (e) => e.target.value = normalizeAndCleanInput(e.target.value));
+        document.getElementById('institutions-toggle-list').addEventListener('input', (e) => {
+            if (e.target.classList.contains('max-qty-input')) {
+                e.target.value = normalizeAndCleanInput(e.target.value);
+            }
+        });
 
-        function saveDataToLocal(data) { try { localStorage.setItem('savedDistributionData', JSON.stringify(data)); } catch (e) { alert("خطأ: لا يمكن حفظ البيانات."); console.error(e); } }
+        function saveDataToLocal(data) { try { localStorage.setItem('savedDistributionData', JSON.stringify(data)); } catch (e) { alert("خطأ: لا يمكن حفظ البيانات."); } }
         
         function loadDataFromLocal() {
             const savedData = localStorage.getItem('savedDistributionData');
@@ -317,7 +316,7 @@
         
         document.addEventListener('click', (e) => { if (!e.target.closest('.search-wrapper')) { suggestionsContainer.innerHTML = ''; } });
         
-        document.getElementById('search-excel-btn').onclick = function() {
+        function performSearch() {
             const query = searchInput.value.trim().toLowerCase();
             suggestionsContainer.innerHTML = '';
             if (!query) { alert("الرجاء إدخال نص للبحث."); return; }
@@ -326,7 +325,8 @@
             if (results.length === 0) { alert(`لم يتم العثور على نتائج للبحث.`); }
             else if (results.length === 1) { populateConfigSection(results[0]); }
             else { showMultiResultModal(results); }
-        };
+        }
+        document.getElementById('search-excel-btn').onclick = performSearch;
         
         function showMultiResultModal(results) {
             const modal = document.getElementById('multi-results-modal');
@@ -365,48 +365,72 @@
             });
             selectedRowData = { row: row, institutions: institutions };
             const toggleList = document.getElementById('institutions-toggle-list');
-            let tableHTML = `<table class="toggle-table"><thead><tr><th><input type="checkbox" id="toggle-all-institutions" checked></th><th>اسم المؤسسة</th><th>الاحتياج</th></tr></thead><tbody>`;
-            institutions.forEach(inst => { tableHTML += `<tr><td><input type="checkbox" class="institution-toggle" data-name="${inst.name}" checked></td><td>${inst.name}</td><td>${inst.need.toLocaleString()}</td></tr>`; });
+            let tableHTML = `<table class="results-table"><thead><tr><th style="width: 5%;"><input type="checkbox" id="toggle-all-institutions" checked></th><th style="width: 40%;">اسم المؤسسة</th><th>الاحتياج</th><th>الحد الأقصى (اختياري)</th></tr></thead><tbody>`;
+            institutions.forEach(inst => { 
+                tableHTML += `<tr>
+                    <td><input type="checkbox" class="institution-toggle" data-name="${inst.name}" checked></td>
+                    <td>${inst.name}</td>
+                    <td>${inst.need.toLocaleString()}</td>
+                    <td><input type="text" class="max-qty-input" data-name="${inst.name}" placeholder="لا يوجد حد" inputmode="numeric"></td>
+                </tr>`; 
+            });
             toggleList.innerHTML = tableHTML + `</tbody></table>`;
-            document.getElementById('toggle-all-institutions').onchange = (e) => document.querySelectorAll('.institution-toggle').forEach(cb => cb.checked = e.target.checked);
         }
         
         document.getElementById('calculate-btn').onclick = function() {
             const availableQty = parseInt(availableQtyInput.value, 10);
             const packageSize = parseInt(packageSizeInput.value, 10) || 1;
             if (isNaN(availableQty)) { alert("الرجاء إدخال كمية متوفرة صحيحة."); return; }
-            const activeInstitutions = selectedRowData.institutions.filter(inst => document.querySelector(`.institution-toggle[data-name="${inst.name}"]`).checked).map(inst => ({...inst})); 
+            
+            const maxQtys = {};
+            document.querySelectorAll('.max-qty-input').forEach(input => {
+                const val = parseInt(input.value, 10);
+                if (!isNaN(val)) maxQtys[input.dataset.name] = val;
+            });
+
+            const activeInstitutions = selectedRowData.institutions
+                .filter(inst => document.querySelector(`.institution-toggle[data-name="${inst.name}"]`).checked)
+                .map(inst => ({...inst, max: maxQtys[inst.name]}));
+
             if (activeInstitutions.length === 0) { alert("يجب تفعيل مؤسسة واحدة على الأقل للتوزيع."); return; }
+            
             const totalNeedOfActive = activeInstitutions.reduce((sum, i) => sum + i.need, 0);
+
             activeInstitutions.forEach(inst => {
                 let share = (totalNeedOfActive > 0) ? Math.floor((inst.need / totalNeedOfActive) * availableQty) : 0;
-                if (!forceDistCheck.checked) share = Math.min(share, inst.need);
-                inst.share = share;
+                let limit = inst.max !== undefined ? inst.max : Infinity;
+                if (!forceDistCheck.checked) limit = Math.min(limit, inst.need);
+                inst.share = Math.min(share, limit);
             });
+            
             let distributedQty = activeInstitutions.reduce((sum, inst) => sum + inst.share, 0);
             let remainder = availableQty - distributedQty;
-            activeInstitutions.sort((a, b) => b.need - a.need);
+            
             let i = 0;
             while(remainder > 0) {
                 const inst = activeInstitutions[i % activeInstitutions.length];
-                if (forceDistCheck.checked || inst.share < inst.need) {
+                let limit = inst.max !== undefined ? inst.max : (forceDistCheck.checked ? Infinity : inst.need);
+                if (inst.share < limit) {
                     inst.share++;
                     remainder--;
                 }
                 i++;
-                if (i > totalNeedOfActive) break;
+                if (i > totalNeedOfActive * 2) { console.error("Failsafe triggered"); break; }
             }
+            
             activeInstitutions.forEach(inst => {
                 inst.roundedShare = Math.floor(inst.share / packageSize) * packageSize;
             });
+
             if (packageSize > 1) {
                 let totalRoundedDistributed = activeInstitutions.reduce((sum, inst) => sum + inst.roundedShare, 0);
                 let roundingRemainder = availableQty - totalRoundedDistributed;
                 while (roundingRemainder >= packageSize) {
                     let bestCandidate = null; let maxLoss = -1;
                     activeInstitutions.forEach(inst => {
+                        let limit = inst.max !== undefined ? inst.max : (forceDistCheck.checked ? Infinity : inst.need);
                         const roundingLoss = inst.share - inst.roundedShare;
-                        if (roundingLoss > maxLoss && (forceDistCheck.checked || (inst.roundedShare + packageSize <= inst.need))) {
+                        if (roundingLoss > maxLoss && inst.roundedShare + packageSize <= limit) {
                            maxLoss = roundingLoss; bestCandidate = inst;
                         }
                     });
@@ -418,6 +442,13 @@
             }
             displayResults(activeInstitutions, totalNeedOfActive, availableQty);
         };
+        
+        function resetCalculation() {
+            document.getElementById('config-section').hidden = true;
+            document.getElementById('results-section').hidden = true;
+            searchInput.value = '';
+        }
+        document.getElementById('reset-btn').onclick = resetCalculation;
 
         function displayResults(institutions, totalNeedOfActive, availableQty) {
             lastResultsData = institutions;
