@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة التوزيعات - النسخة النهائية المستقرة</title>
+    <title>نظام إدارة التوزيعات - النسخة النهائية</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -35,24 +35,21 @@
         .modal-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1001; }
         .modal-content { background: var(--panel-bg); padding: 20px; border-radius: 12px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
         .results-list-item { padding: 15px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; cursor: pointer; }
-        .results-list-item:hover { background-color: #3a3f4b; }
         .options-row { display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 12px; background: #2d3241; border-radius: 8px; }
         .results-summary { text-align: center; font-size: 1.1em; margin-bottom: 1em; background: #2d3241; padding: 10px; border-radius: 8px; }
         .results-table { width: 100%; border-collapse: collapse; font-size: 0.95em; margin-top: 1em; table-layout: fixed; }
         .results-table th, .results-table td { border-bottom: 1px solid var(--border); padding: 12px 8px; text-align: center; word-wrap: break-word; }
-        .results-table tfoot td { font-weight: bold; border-top: 2px solid var(--accent); }
-        #institutions-toggle-list { padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
         #print-header { display: none; }
         
         @media print {
             body { background: #fff; color: #000; }
             main, .section { margin: 0; padding: 0; border: none; box-shadow: none; background: #fff; }
             .no-print { display: none !important; }
-            #print-header { display: block; text-align: center; margin-bottom: 2em; }
+            #print-header { display: block; text-align: center; margin-bottom: 2em; border-bottom: 2px solid #000; padding-bottom: 1em;}
             #print-header h1 { font-size: 16pt; margin: 0; color: #000; }
-            #print-header p { font-size: 12pt; margin: 5px 0; color: #000; }
-            h1, h2 { display: none; }
-            .results-table { border: 1px solid #ccc; }
+            #print-header p { font-size: 11pt; margin: 5px 0; color: #555; }
+            h2 { display: none; }
+            .results-table { border: 1px solid #ccc; font-size: 9pt; }
             @page { size: A4; margin: 20mm; }
         }
     </style>
@@ -88,6 +85,9 @@
                 </div>
                 <div><label style="visibility: hidden;">.</label><button id="search-excel-btn" class="btn btn-primary">🔍 بحث</button></div>
             </div>
+            <div id="reset-button-container" class="form-row" hidden>
+                <button id="reset-btn" class="btn btn-danger">🔄 تصفير والبدء من جديد</button>
+            </div>
         </div>
         
         <div class="section no-print" id="config-section" hidden>
@@ -113,14 +113,13 @@
                 </div>
                  <div><button id="calculate-btn" class="btn btn-success">🧮 احتساب الحصص</button></div>
             </div>
-             <div style="margin-top: 1em;">
-                 <button id="reset-btn" class="btn btn-danger">🔄 تصفير والبدء من جديد</button>
-            </div>
         </div>
         <div class="section" id="results-section" hidden>
             <div id="print-header">
+                <p id="print-date"></p>
                 <h1 id="print-item-name"></h1>
                 <p id="print-item-code"></p>
+                <p id="print-available-qty"></p>
             </div>
             <h2 class="no-print">الخطوة 3: النتائج النهائية</h2>
             <div id="results-table-container"></div>
@@ -136,7 +135,7 @@
             </div>
         </div>
         <footer class="no-print">
-            <p>علي محمد حسن</p>
+            <p>الصيدلاني علي محمد حسن الناجي</p>
             <p>قسم الصيدلة - دائرة صحة المثنى</p>
         </footer>
     </main>
@@ -150,6 +149,8 @@
         const availableQtyInput = document.getElementById('available-qty-input');
         const packageSizeInput = document.getElementById('package-size-input');
         const forceDistCheck = document.getElementById('force-full-dist-check');
+        const resetButtonContainer = document.getElementById('reset-button-container');
+        const resetButton = document.getElementById('reset-btn');
         let debounceTimer;
 
         async function discoverAvailableYears() {
@@ -157,7 +158,7 @@
             const cacheKey = 'cachedYearsList';
             const cachedData = JSON.parse(localStorage.getItem(cacheKey));
             const now = new Date().getTime();
-            if (cachedData && (now - cachedData.timestamp < 3600000)) {
+            if (cachedData && (now - cachedData.timestamp < 3600000)) { // 1 hour cache
                 populateYearSelect(cachedData.years);
                 return;
             }
@@ -347,6 +348,7 @@
         function populateConfigSection(row) {
             document.getElementById('config-section').hidden = false;
             document.getElementById('results-section').hidden = true;
+            resetButtonContainer.hidden = false; // Show the reset button
             availableQtyInput.value = '';
             packageSizeInput.value = '';
             document.getElementById('item-name-display').value = row[1] || 'غير متوفر';
@@ -446,9 +448,10 @@
         function resetCalculation() {
             document.getElementById('config-section').hidden = true;
             document.getElementById('results-section').hidden = true;
+            resetButtonContainer.hidden = true;
             searchInput.value = '';
         }
-        document.getElementById('reset-btn').onclick = resetCalculation;
+        resetButton.onclick = resetCalculation;
 
         function displayResults(institutions, totalNeedOfActive, availableQty) {
             lastResultsData = institutions;
@@ -456,8 +459,12 @@
             const packageSize = parseInt(packageSizeInput.value, 10) || 1;
             const itemCode = selectedRowData.row[0] || 'غير متوفر';
             const itemName = selectedRowData.row[1] || 'غير متوفر';
+
+            document.getElementById('print-date').textContent = `تاريخ الطباعة: ${new Date().toLocaleDateString('ar-IQ')}`;
             document.getElementById('print-item-name').textContent = `تقرير توزيع مادة: ${itemName}`;
             document.getElementById('print-item-code').textContent = `الكود: ${itemCode}`;
+            document.getElementById('print-available-qty').textContent = `الكمية المتوفرة للتوزيع: ${availableQty.toLocaleString()}`;
+
             const totalDistributed = institutions.reduce((sum, inst) => sum + inst.share, 0);
             const totalRoundedDistributed = institutions.reduce((sum, inst) => sum + inst.roundedShare, 0);
             const finalTotalDistributed = packageSize > 1 ? totalRoundedDistributed : totalDistributed;
