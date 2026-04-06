@@ -251,7 +251,6 @@
             const statusEl = document.getElementById('data-status');
             let url = "";
 
-            // اختيار الرابط بناءً على القيمة
             if (val === 'cancer_2026') {
                 url = CANCER_FILE_URL;
             } else if (val === 'cancer_approved_2026') {
@@ -278,7 +277,7 @@
             reader.readAsBinaryString(fileInput.files[0]);
         };
 
-        // معالجة البيانات (Core Logic)
+        // معالجة البيانات
         function processExcelData(data, type) {
             try {
                 const workbook = XLSX.read(data, {type: type});
@@ -313,7 +312,6 @@
             }
         }
 
-        // === دالة البحث عن رقم العمود (Fixed & Safe) ===
         function findColIndex(headers, keywords) {
             if (!headers) return -1;
             const safeHeaders = [];
@@ -374,30 +372,48 @@
             
             const nameIdx = findColIndex(excelData.headers, ["items", "اسم المادة", "name"]);
             const codeIdx = findColIndex(excelData.headers, ["national code", "code", "الكود", "رمز"]);
-            let totalIdx = findColIndex(excelData.headers, ["دائرة صحة المثنى", "المثنى", "total need", "مجموع الاحتياج", "الاحتياج الكلي"]);
+            let totalIdx = findColIndex(excelData.headers, ["دائرة صحة المثنى", "المثنى", "total need", "مجموع الاحتياج", "الاحتياج الكلي", "الكلي 2026"]);
             
             if (totalIdx === -1) {
                 for (let i = row.length - 1; i >= 0; i--) {
-                    if (typeof row[i] === 'number' && row[i] > 0) { totalIdx = i; break; }
+                    // معالجة الأرقام ذات الفواصل عند البحث عن الإجمالي
+                    let tVal = String(row[i]).replace(/,/g, '');
+                    if (!isNaN(tVal) && parseInt(tVal) > 0) { totalIdx = i; break; }
                 }
             }
 
             document.getElementById('item-name-display').value = row[nameIdx] || '-';
             document.getElementById('item-code-display').value = (codeIdx !== -1) ? row[codeIdx] : '-';
-            const totalVal = (totalIdx !== -1) ? (parseInt(row[totalIdx]) || 0) : 0;
+            
+            // معالجة الفواصل في قيمة الإجمالي
+            let rawTotal = String((totalIdx !== -1 && row[totalIdx] != null) ? row[totalIdx] : '0').replace(/,/g, '');
+            const totalVal = parseInt(rawTotal) || 0;
             document.getElementById('total-need-display').value = totalVal.toLocaleString();
 
             const institutions = [];
-            const instKeywords = ["مستشفى", "قطاع", "مركز", "تأهيل", "عيادة", "مخزن"];
+            
+            // إضافة الجذور الكلية للكلمات لضمان عدم استبعاد أي مركز
+            const instKeywords = [
+                "مستشفى", "قطاع", "مركز", "تأهيل", "عيادة", "مخزن", 
+                "سكر", "صدرية", "حساسية", "اسنان", "معوق", "اورام"
+            ];
             let foundIndividualInsts = false;
 
             excelData.headers.forEach((h, i) => {
                 if (!h || i === nameIdx || i === codeIdx || i === totalIdx) return;
-                const hClean = String(h).toLowerCase();
-                if (["ملاحظات", "unit", "level", "notes", "قياس"].some(x => hClean.includes(x))) return;
+                
+                // تنظيف اسم العمود من المسافات المخفية
+                const hClean = String(h).toLowerCase().trim();
+                
+                // تجاهل أعمدة الملاحظات
+                if (["ملاحظات", "unit", "level", "notes", "قياس"].some(x => hClean.includes(x)) && !instKeywords.some(k => hClean.includes(k))) return;
 
-                const val = parseInt(row[i]) || 0;
-                if (instKeywords.some(k => hClean.includes(k)) && val > 0) {
+                // معالجة الأرقام المكتوبة بفاصلة مثل 1,500
+                let rawVal = String(row[i] || '0').replace(/,/g, '');
+                const val = parseInt(rawVal) || 0;
+                
+                // إدراج المؤسسات التي تطابق الكلمات المفتاحية حتى لو كان احتياجها 0
+                if (instKeywords.some(k => hClean.includes(k))) {
                     institutions.push({ name: h, need: val });
                     foundIndividualInsts = true;
                 }
@@ -405,7 +421,7 @@
 
             if (!foundIndividualInsts && totalVal > 0) {
                 institutions.push({ 
-                    name: "المستفيد الرئيسي / مركز الأورام", 
+                    name: "المستفيد الرئيسي", 
                     need: totalVal 
                 });
             }
@@ -462,6 +478,7 @@
             const totalNeed = activeInsts.reduce((s, i) => s + i.need, 0);
 
             activeInsts.forEach(inst => {
+                // إذا كان الاحتياج الكلي 0 (جميع المراكز صفر)، نوزع بالتساوي
                 let share = (totalNeed > 0) ? (inst.need / totalNeed) * avail : (avail / activeInsts.length);
                 let limit = inputs.forceCheck.checked ? Infinity : inst.need;
                 if (inst.max !== Infinity) limit = Math.min(limit, inst.max);
@@ -584,6 +601,32 @@
         };
 
         document.getElementById('print-btn').onclick = () => window.print();
+
+        // تفعيل زر الحفظ إلى Excel (CSV)
+        document.getElementById('export-csv-btn').onclick = () => {
+            if (!lastResultsData || lastResultsData.length === 0) {
+                alert("لا توجد نتائج لتصديرها.");
+                return;
+            }
+            
+            const itemName = document.getElementById('item-name-display').value;
+            // إضافة BOM لدعم الحروف العربية في الإكسل
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+            csvContent += "الجهة المستفيدة,الاحتياج,الحصة (الكمية الموزعة)\n";
+            
+            lastResultsData.forEach(inst => {
+                // وضع القيم داخل علامات تنصيص لحمايتها
+                csvContent += `"${inst.name}","${inst.need}","${inst.final}"\n`;
+            });
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `توزيع_مادة_${itemName}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
 
         document.getElementById('search-excel-btn').onclick = () => {
              const query = normalizeText(inputs.search.value);
